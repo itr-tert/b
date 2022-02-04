@@ -1,0 +1,980 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="https://itr-tert.github.io/note/feed.xml" rel="self" type="application/atom+xml" /><link href="https://itr-tert.github.io/note/" rel="alternate" type="text/html" /><updated>2022-02-04T21:39:26+09:00</updated><id>https://itr-tert.github.io/note/feed.xml</id><title type="html">メモ束</title><subtitle>-</subtitle><entry><title type="html">dcm4cheの文字化け</title><link href="https://itr-tert.github.io/note/2022-01--dcm4che.html" rel="alternate" type="text/html" title="dcm4cheの文字化け" /><published>2022-02-02T00:00:00+09:00</published><updated>2022-02-02T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/dcm4che</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-01--dcm4che.html">&lt;p&gt;dcm4che / DICOM / ISO 2022 / 日本語処理&lt;/p&gt;
+
+&lt;h2 id=&quot;文字化け不具合を直しました&quot;&gt;文字化け不具合を直しました&lt;/h2&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4che&lt;/code&gt; や &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt; で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;あaあ&quot;&lt;/code&gt; みたいに全角→半角→全角の時に文字化けする不具合があります。&lt;/p&gt;
+
+&lt;p&gt;直したものを本家 https://github.com/dcm4che/dcm4che に pull request してますが放置され中なんで修正版を配布します。&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/itr-tert/dcm4che-modmojibake-download&quot;&gt;ダウンロード&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/itr-tert/dcm4che/commit/175cd6e58771a77549d5bbd15f3bc8bfd0fa419a&quot;&gt;変更箇所&lt;/a&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;この対策版で改善できる不具合&quot;&gt;この対策版で改善できる不具合&lt;/h3&gt;
+
+&lt;p&gt;不具合修正版を適用した後に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;が受信したDICOMファイルが対象です。
+(適用前のデータについては次項参照)&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;に不備ないこと&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;文字列バイナリが異常ではないこと&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;1と2を満たしていたにも関わらず文字化けしていた場合は改善が期待できます。&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;の不備は外国製の検査ステーションや検査機を使っている場合に多いです。&lt;br /&gt;
+これらの製品は、日本語が入力出来ているように見えて&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO IR_100&quot;&lt;/code&gt;(Latin alphabet No.1)しか指定されていないDICOMファイルを作り出していることがあります。(DICOM規格違反)&lt;br /&gt;
+そういったデータは今回の文字化け不具合修正版でも文字化けします。&lt;/p&gt;
+
+&lt;p&gt;期待通りの文字列として扱うには、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DICOMファイル&lt;/code&gt;を入れる前に加工する必要あり。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;(多くの日本製PACSのように)&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;を無視して文字列バイナリを解釈してから&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;を使っている文字レパートリに合わせ書き出す&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;この加工したDICOMファイルを&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;に送信&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;こういうproxyが必要ですが、たぶんない。&lt;/p&gt;
+
+&lt;h3 id=&quot;すでに保存している文字化けデータ&quot;&gt;すでに保存している文字化けデータ&lt;/h3&gt;
+
+&lt;p&gt;現時点で取れる修正方法は&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;ファイルからデータベースを再構築する&lt;br /&gt;
+(新しくデータベースを割り当てて全DICOMファイルを読ませる。など)&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;DICOMデータ(インスタンス)ひとつひとつに対して&lt;/p&gt;
+
+    &lt;ul&gt;
+      &lt;li&gt;
+        &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;からインスタンスをファイルへエクスポート(C-GETやC-MOVEだと文字化け後DICOMが出てくるのでWADOで)&lt;/p&gt;
+      &lt;/li&gt;
+      &lt;li&gt;
+        &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;からそのインスタンスを削除&lt;/p&gt;
+      &lt;/li&gt;
+      &lt;li&gt;
+        &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;にさっきのインスタンスを送信&lt;/p&gt;
+      &lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;この2通りです。&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcmファイル&lt;/code&gt;を受け取ると&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;デコードしてデータベースへ(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;インデックス&lt;/code&gt;)&lt;/li&gt;
+  &lt;li&gt;デコードしてエンコードしたものをデータベースへ(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ブロブ&lt;/code&gt;)&lt;/li&gt;
+  &lt;li&gt;ほぼ元と同じデータをファイルとして(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ファイル&lt;/code&gt;)&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;という3種類の保存を行ないます。&lt;br /&gt;
+このうち&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;インデックス&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ファイル&lt;/code&gt;は意味上は文字化けしていません(保存された生&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ファイル&lt;/code&gt;は文字化けしていないが、DICOM規格による送信では&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ブロブ&lt;/code&gt;利用による文字化けが起きる)。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;だから文字化け対応版環境で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ファイル&lt;/code&gt;から&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ブロブ&lt;/code&gt;を再生成する処理をするか&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;あるいは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;から削除して再登録すれば&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;別データベースを用意することなく文字化けを修正できますが、&lt;br /&gt;
+それをするツールはたぶんない。&lt;/p&gt;
+
+&lt;h2 id=&quot;dcm4chee-arc-light-雑記&quot;&gt;dcm4chee-arc-light 雑記&lt;/h2&gt;
+
+&lt;h3 id=&quot;dcm4chee-arc-light-インストール時に決めなければいけないことリスト&quot;&gt;dcm4chee-arc-light インストール時に決めなければいけないことリスト&lt;/h3&gt;
+
+&lt;p&gt;それと調べておかなければいけないことリスト&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;調べておく: データベースのルートユーザー名とパスワード&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;dcm4chee-arc-light用のデータベースユーザー名とパスワード&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;dcm4chee-arc-light用のテーブル名&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;jdk を置く場所(そこが環境変数&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JAVA_HOME&lt;/code&gt;になる)&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;wildfly を置く場所(java以外で dcm4chee-arc-light の実行に必要なファイルはここ以下に集約される)&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3&gt;(?)&lt;/h3&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;(?) 例
+mysql: user: dcm4chee  
+mysql: pass: dcm4cheepass  
+mysql: database-name: dcm4chedb  
+
+環境変数: PATH, JAVA_HOME  
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;(?) 例
+/subsystem=datasources/jdbc-driver=mysql:add(driver-name=mysql,driver-module-name=com.mysql)
+
+data-source add --name=PacsDS \
+     --driver-name=mysql \
+     --connection-url=jdbc:mysql://localhost:3306/dcm4chedb?serverTimezone=Asia/Tokyo \
+     --jndi-name=java:/PacsDS \
+     --user-name=dcm4chee \
+     --password=dcm4cheepass
+
+deploy dcm4chee-arc-light/dcm4chee-arc-ear/target/dcm4chee-arc-ear-5.25.1-mysql.ear
+deploy dcm4chee-arc-light/dcm4chee-arc-ui2/target/dcm4chee-arc-ui2-5.25.1.war
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;http://localhost:18080/dcm4chee-arc/ui2/&lt;br /&gt;
+http://localhost:8080/dcm4chee-arc/ui2/&lt;/p&gt;
+
+&lt;h3 id=&quot;dcm4chee-arc-light-バージョンアップ&quot;&gt;dcm4chee-arc-light バージョンアップ&lt;/h3&gt;
+&lt;p&gt;方法はあるがドキュメントはみつからない。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;update-*.sql&lt;/code&gt; と &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;update-*.ldif&lt;/code&gt; をそれぞれ適用する。&lt;br /&gt;
+(…)&lt;/p&gt;
+
+&lt;h3 id=&quot;data-sourceの記述を間違えた場合は&quot;&gt;data-sourceの記述を間違えた場合は&lt;/h3&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jboss-cli&lt;/code&gt;上で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;data-source remove --name=PacsDS&lt;/code&gt;で消せる&lt;/p&gt;
+
+&lt;p&gt;ちなみに &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/subsystem=datasources:read-resource&lt;/code&gt; で登録済の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;data-source&lt;/code&gt;一覧が得られる。&lt;/p&gt;
+
+&lt;h3 id=&quot;-1&quot;&gt;(?)&lt;/h3&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;% cp mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar modules/com/mysql/main
+% emacsclient modules/com/mysql/main/module.xml  
+書き換え 25 -&amp;gt; 27  
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;エラー&quot;&gt;エラー&lt;/h3&gt;
+&lt;h4 id=&quot;エラー例-jbosspersistenceunit-とか-orghibernate&quot;&gt;エラー例 (jboss.persistenceunit とか org.hibernate)&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[standalone@localhost:9990 /] deploy ../dcm4chee-arc-5.24.2-mysql/deploy/dcm4chee-arc-ear-5.24.2-mysql.ear
+{&quot;WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:&quot; =&amp;gt; {&quot;Operation step-2&quot; =&amp;gt; {&quot;WFLYCTL0080: Failed services&quot; =&amp;gt; {&quot;jboss.persistenceunit.\&quot;dcm4chee-arc-ear-5.24.2-mysql.ear#dcm4chee-arc\&quot;&quot; =&amp;gt; &quot;org.hibernate.service.spi.ServiceException: Unable to create requested service [org.hibernate.engine.jdbc.env.spi.JdbcEnvironment]
+    Caused by: org.hibernate.service.spi.ServiceException: Unable to create requested service [org.hibernate.engine.jdbc.env.spi.JdbcEnvironment]
+    Caused by: org.hibernate.HibernateException: Access to DialectResolutionInfo cannot be null when 'hibernate.dialect' not set&quot;}}}}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;上記理由: data-source の記述が間違っている。&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jboss-cli&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;data-source remove --name=PacsDS&lt;/code&gt;としてdata-sourceを一度消して再登録する。&lt;/p&gt;
+
+&lt;h4 id=&quot;エラー例-pacsds-is-missing-jbossjdbc-drivermysql&quot;&gt;エラー例 (/PacsDS is missing [jboss.jdbc-driver.mysql])&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;14:52:21,165 INFO  [org.jboss.ws.common.management] (MSC service thread 1-8) JBWS022052: Starting JBossWS 5.3.0.Final (Apache CXF 3.3.2) 
+14:52:21,174 ERROR [org.jboss.as.controller.management-operation] (Controller Boot Thread) WFLYCTL0013: Operation (&quot;add&quot;) failed - address: ([
+    (&quot;subsystem&quot; =&amp;gt; &quot;datasources&quot;),
+    (&quot;data-source&quot; =&amp;gt; &quot;PacsDS&quot;)
+]) - failure description: {
+    &quot;WFLYCTL0412: Required services that are not installed:&quot; =&amp;gt; [&quot;jboss.jdbc-driver.mysql&quot;],
+    &quot;WFLYCTL0180: Services with missing/unavailable dependencies&quot; =&amp;gt; [
+        &quot;jboss.driver-demander.java:/PacsDS is missing [jboss.jdbc-driver.mysql]&quot;,
+        &quot;org.wildfly.data-source.PacsDS is missing [jboss.jdbc-driver.mysql]&quot;
+    ]
+}
+14:52:21,303 ERROR [org.jboss.as.controller.management-operation] (Controller Boot Thread) WFLYCTL0013: Operation (&quot;add&quot;) failed - address: ([
+    (&quot;subsystem&quot; =&amp;gt; &quot;datasources&quot;),
+    (&quot;data-source&quot; =&amp;gt; &quot;PacsDS&quot;)
+]) - failure description: {
+    &quot;WFLYCTL0412: Required services that are not installed:&quot; =&amp;gt; [
+        &quot;jboss.jdbc-driver.mysql&quot;,
+        &quot;jboss.jdbc-driver.mysql&quot;
+    ],
+    &quot;WFLYCTL0180: Services with missing/unavailable dependencies&quot; =&amp;gt; [
+        &quot;jboss.driver-demander.java:/PacsDS is missing [jboss.jdbc-driver.mysql]&quot;,
+        &quot;org.wildfly.data-source.PacsDS is missing [jboss.jdbc-driver.mysql]&quot;,
+        &quot;org.wildfly.data-source.PacsDS is missing [jboss.jdbc-driver.mysql]&quot;
+    ]
+}
+14:52:21,336 INFO  [org.jboss.as.controller] (Controller Boot Thread) WFLYCTL0183: Service status report
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;上記理由: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;data-source&lt;/code&gt;が間違っている。あるいは、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jdbc-driver&lt;/code&gt;を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly&lt;/code&gt;が読み込めていない(上の例では&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;mysql&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jdbc-driver&lt;/code&gt;)。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/modules/com/mysql/main/&lt;/code&gt;に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;mysql-connector-java-*.jar&lt;/code&gt;のようなファイルがあるかどうか確認。&lt;br /&gt;
+(存在しないなら&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;データベース名&quot; jdbc driver download&lt;/code&gt;とかで探してきて配置する)&lt;/p&gt;
+
+&lt;p&gt;次に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/modules/com/mysql/main/module.xml&lt;/code&gt;の内容を確認して&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;lt;resource-root path=&quot;mysql-connector-java-5.1.36-bin.jar&quot;/&amp;gt;&lt;/code&gt;とか書いてある行が実在しているファイルを指しているか確認する。&lt;br /&gt;
+存在しているjarファイルを指すように書き換える。&lt;/p&gt;
+
+&lt;h4 id=&quot;エラー例&quot;&gt;エラー例&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Caused by: org.jboss.msc.service.ServiceNotFoundException: Service service jboss.ejb.default-resource-adapter-name-service not found
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;上記理由: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc.xml&lt;/code&gt; の記述がおかしい。&lt;br /&gt;
+バージョンアップ時に起きる。&lt;br /&gt;
+インストール作業での&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cp standalone.xml dcm4chee-arc.xml&lt;/code&gt;とするか&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cp standalone-full.xml dcm4chee-arc.xml&lt;/code&gt;とするかの選択が間違っている。&lt;/p&gt;
+
+&lt;h4 id=&quot;エラー例-ldap-serverへ繋がらない&quot;&gt;エラー例 (LDAP serverへ繋がらない)&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;{&quot;WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:&quot; =&amp;gt; {&quot;Operation step-2&quot; =&amp;gt; {&quot;WFLYCTL0080: Failed services&quot; =&amp;gt; {&quot;jboss.deployment.subunit.\&quot;dcm4chee-arc-ear-5.24.2-mysql.ear\&quot;.\&quot;dcm4chee-arc-service-5.24.2.jar\&quot;.component.ArchiveServiceImpl.START&quot; =&amp;gt; &quot;java.lang.IllegalStateException: WFLYEE0042: Failed to construct component instance  
+    Caused by: java.lang.IllegalStateException: WFLYEE0042: Failed to construct compone
+nt instance
+    Caused by: javax.ejb.EJBException: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@64a7c974
+    Caused by: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@64a7c974
+    Caused by: java.lang.reflect.InvocationTargetException
+    Caused by: javax.enterprise.inject.CreationException
+    Caused by: org.dcm4che3.conf.api.ConfigurationException: javax.naming.Communication
+Exception: localhost:389 [Root exception is java.net.ConnectException: 接続を拒否されました (Connection refused)]
+    Caused by: javax.naming.CommunicationException: localhost:389 [Root exception is java.net.ConnectException: 接続を拒否されました (Connection refused)]
+    Caused by: java.net.ConnectException: 接続を拒否されました (Connection refused)&quot;}}}}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;h4 id=&quot;上記理由&quot;&gt;上記理由&lt;/h4&gt;
+&lt;p&gt;LDAP serverへ繋がらない。&lt;br /&gt;
+上記例の場合は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ポート389&lt;/code&gt;が沈黙している。&lt;br /&gt;
+どのポートを見に行くかはファイル&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties&lt;/code&gt;の&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; java.naming.provider.url=ldap://localhost:389/dc=dcm4che,dc=org
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;の数字部分で決まる。変更したら&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly&lt;/code&gt;の再起動。(よく使われるのは 10389 と 389)&lt;/p&gt;
+
+&lt;h4 id=&quot;エラー例-ldap-error-code-49---invalid_credentials&quot;&gt;エラー例 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;(LDAP: error code 49 - INVALID_CREDENTIALS)&lt;/code&gt;&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;{&quot;WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:&quot; =&amp;gt; {&quot;Operation step-2&quot; =&amp;gt; {&quot;WFLYCTL0080: Failed services&quot; =&amp;gt; {&quot;jboss.deployment.subunit.\&quot;dcm4chee-arc-ear-5.18.0-mysql.ear\&quot;.\&quot;dcm4chee-arc-service-5.18.0.jar\&quot;.component.ArchiveServiceImpl.START&quot; =&amp;gt; &quot;java.lang.IllegalStateException: WFLYEE0042: Failed to construct component instance
+    Caused by: java.lang.IllegalStateException: WFLYEE0042: Failed to construct component instance
+    Caused by: javax.ejb.EJBException: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@6151faa8
+    Caused by: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@6151faa8
+    Caused by: java.lang.reflect.InvocationTargetException
+    Caused by: javax.enterprise.inject.CreationException
+    Caused by: org.dcm4che3.conf.api.ConfigurationException: javax.naming.AuthenticationException: [LDAP: error code 49 - INVALID_CREDENTIALS: Bind failed: Attempt to lookup non-existant entry: cn=admin,dc=dcm4che,dc=org]
+    Caused by: javax.naming.AuthenticationException: [LDAP: error code 49 - INVALID_CREDENTIALS: Bind failed: Attempt to lookup non-existant entry: cn=admin,dc=dcm4che,dc=org]&quot;}}}}
+
+  java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
+  java.naming.security.credentials=secret
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;h4 id=&quot;上記理由-1&quot;&gt;上記理由&lt;/h4&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties&lt;/code&gt;にあるLDAP serverへ繋ぐための認証情報がおかしい(dcm4chee/wildflyはLDAPサーバーへは到達できている)&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
+  java.naming.security.credentials=secret
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;この2行のどちらか。&lt;br /&gt;
+原因に多いのはprincipalの方。&lt;br /&gt;
+LDAPサーバーの設定を見て書き直す。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;java.naming.security.principal=uid=admin,ou=system&lt;/code&gt; にすれば接続できる場合もあるが、これが上手く行く場合は .ldif ファイルを使った導入作業に何か失敗している。&lt;/p&gt;
+
+&lt;h4 id=&quot;エラー例-no-enum-constant-orgdcm4cheearcconfxxx&quot;&gt;エラー例 (No enum constant org.dcm4chee.arc.conf.xxx)&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;{&quot;WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:&quot; =&amp;gt; {&quot;Operation step-2&quot; =&amp;gt; {&quot;WFLYCTL0080: Failed services&quot; =&amp;gt; {&quot;jboss.deployment.subunit.\&quot;dcm4chee-arc-ear-5.18.0-mysql.ear\&quot;.\&quot;dcm4chee-arc-service-5.18.0.jar\&quot;.component.ArchiveServiceImpl.START&quot; =&amp;gt; &quot;java.lang.IllegalStateException: WFLYEE0042: Failed to construct component instance
+    Caused by: java.lang.IllegalStateException: WFLYEE0042: Failed to construct component instance
+    Caused by: javax.ejb.EJBException: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@550d320b
+    Caused by: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@550d320b
+    Caused by: java.lang.reflect.InvocationTargetException
+    Caused by: java.lang.IllegalArgumentException: No enum constant org.dcm4chee.arc.conf.Entity.UPS&quot;}}}}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    Caused by: java.lang.IllegalArgumentException: No enum constant org.dcm4chee.arc.conf.SPSStatus.CANCELLED
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;こういったメッセージ(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;No enum constant org.dcm4chee.arc.conf.xxx&lt;/code&gt;) は LDAP Server のセットアップが失敗している状態(dcm4chee/wildflyはLDAPサーバーへ到達できていて、LDAP利用のための認証も出来ている)&lt;br /&gt;
+よくわからなければ LDAP Server を削除して1からやりなおすのが楽。&lt;br /&gt;
+(※&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;CANCELLED&lt;/code&gt;に限れば、これは誤字でどこからかのバージョンで修正され&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;CANCELED&lt;/code&gt;になった。)&lt;/p&gt;
+
+&lt;h3 id=&quot;wildfly設定反映&quot;&gt;wildfly設定反映&lt;/h3&gt;
+&lt;p&gt;使用するポートやログの設定が書いてある&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc.xml&lt;/code&gt;&lt;br /&gt;
+このファイルを編集(port番号を変えたり)した場合は&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/bin/standalone.sh -c dcm4chee-arc.xml&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/bin/standalone.bat -c dcm4chee-arc.xml&lt;/code&gt;&lt;br /&gt;
+を再起動する必要がある。&lt;/p&gt;
+
+&lt;h3 id=&quot;相性問題&quot;&gt;相性問題&lt;/h3&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;20:55:58,478 ERROR [org.jboss.resteasy.resteasy_jaxrs.i18n] (default task-14) RESTEASY002020: Unhandled asynchronous exception, sending back 500: org.jboss.resteasy.spi.UnhandledException: java.lang.IncompatibleClassChangeError: Expected static method org.jboss.resteasy.spi.ResteasyProviderFactory.getContextData(Ljava/lang/Class;)Ljava/lang/Object;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-5.24.2-mysql&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;openjdk-12&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-26.0.0.Final&lt;/code&gt;&lt;br /&gt;
+wildfly-26はダメ(新しすぎ)&lt;/p&gt;
+
+&lt;h3 id=&quot;相性問題-1&quot;&gt;相性問題&lt;/h3&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;{&quot;WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:&quot; =&amp;gt; {&quot;Operation step-2&quot; =&amp;gt; {&quot;WFLYCTL0080: Failed services&quot; =&amp;gt; {&quot;jboss.deployment.subunit.\&quot;dcm4chee-arc-ear-5.24.2-mysql.ear\&quot;.\&quot;dcm4chee-arc-pdq-scheduler-5.24.2.jar\&quot;.INSTALL&quot; =&amp;gt; &quot;WFLYSRV0153: Failed to process phase INSTALL of subdeployment \&quot;dcm4chee-arc-pdq-scheduler-5.24.2.jar\&quot; of deployment \&quot;dcm4chee-arc-ear-5.24.2-mysql.ear\&quot;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;|出る|&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-5.24.2-mysql&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;openjdk-17.0.1&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-17.0.1.Final&lt;/code&gt;|
+|-|-|
+|出ない|&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-5.24.2-mysql&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;openjdk-12&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-17.0.1.Final&lt;/code&gt;|&lt;/p&gt;
+
+&lt;p&gt;openjdk-17.0.1はダメ(新しすぎ)&lt;/p&gt;
+
+&lt;h3 id=&quot;相性問題-2&quot;&gt;相性問題&lt;/h3&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;.&lt;/th&gt;
+      &lt;th&gt;.&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Apache DS 2.0.0-M25&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dicom.ldif&lt;/code&gt;を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;import&lt;/code&gt;した後、再起動不可&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Apache DS 2.0.0-M24&lt;/td&gt;
+      &lt;td&gt;可&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Apache DS 2.0.0-M9&lt;/td&gt;
+      &lt;td&gt;可&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;https://directory.apache.org/apacheds/download-old-versions.html&lt;/p&gt;
+
+&lt;h4 id=&quot;apache-directory-studio&quot;&gt;Apache Directory Studio&lt;/h4&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Apache Directory Studio&lt;/code&gt; で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt; を作成し start すると &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Apache Directory Studio&lt;/code&gt; に内臓された &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt; が開始される。&lt;br /&gt;
+内容実体はファイルとして &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;${HOME}/.ApacheDirectoryStudio/&lt;/code&gt; 以下に配置される。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Apache Directory Studio : https://directory.apache.org/studio/&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP&lt;/code&gt;を扱うためのGUIを提供する。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt;も内臓しているが常駐させるには向かない。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;ではセットアップ時とアップデート時に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;.ldif&lt;/code&gt;ファイルを&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt;へ適用するために使う。&lt;/p&gt;
+
+&lt;h4 id=&quot;apacheds-windows版&quot;&gt;ApacheDS Windows版&lt;/h4&gt;
+&lt;p&gt;https://directory.apache.org/apacheds/&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt;の単体&lt;br /&gt;
+Windows版ではサービスモードで実行される。&lt;/p&gt;
+
+&lt;p&gt;インストール時に質問される&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Server Home Directory&lt;/code&gt;は実行のためのファイルの配置場所。&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Server Instances Home Directory&lt;/code&gt;は書いてある通りインスタンスデータ(内容実体データ)を配置する場所。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt;の中身を配置する場所。&lt;br /&gt;
+設定値をファイルレベルでバックアップしたい場合はここを含める。&lt;/p&gt;
+
+&lt;h3 id=&quot;ビルドエラー-dcm4chee-arc-light-5251&quot;&gt;ビルドエラー dcm4chee-arc-light 5.25.1&lt;/h3&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;mvn install -D db=mysql&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[INFO] -------------&amp;lt; org.dcm4che.dcm4chee-arc:dcm4chee-arc-ui2 &amp;gt;--------------
+[INFO] Building dcm4chee-arc-ui2 5.25.1                               [114/118]
+[INFO] --------------------------------[ war ]---------------------------------
+[WARNING] The POM for org.dcm4che.dcm4chee-arc:dcm4chee-arc-lang:war:5.25.1 is missing, no dependency information available
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for dcm4chee-arc-parent 5.25.1:
+ -省略-
+[INFO] dcm4chee-arc-war ................................... SUCCESS [  0.113 s]
+[INFO] dcm4chee-arc-ui2 ................................... FAILURE [  0.020 s]
+[INFO] dcm4chee-arc-xsl-cda ............................... SKIPPED
+[INFO] dcm4chee-arc-ear ................................... SKIPPED
+[INFO] dcm4chee-arc-assembly .............................. SKIPPED
+[INFO] dcm4chee-arr-query ................................. SKIPPED
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  19.328 s
+[INFO] Finished at: 2022-01-15T14:36:15+09:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal on project dcm4chee-arc-ui2: Could not resolve dependencies for project org.dcm4che.dcm4chee-arc:dcm4chee-arc-ui2:war:5.25.1: Failure to find org.dcm4che.dcm4chee-arc:dcm4chee-arc-lang:war:5.25.1 in https://www.dcm4che.org/maven2 was cached in the local repository, resolution will not be reattempted until the update interval of www.dcm4che.org has elapsed or updates are forced -&amp;gt; [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException
+[ERROR] 
+[ERROR] After correcting the problems, you can resume the build with the command
+[ERROR]   mvn &amp;lt;args&amp;gt; -rf :dcm4chee-arc-ui2
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;対象: dcm4chee-arc-light (date:Thu Jan 13 22:08:46 2022 +0100, commit:0528496c27ec8ec29e503712cc536305aa52e40b, version:5.25.1, )&lt;br /&gt;
+https://www.dcm4che.org/maven2/org/dcm4che/dcm4chee-arc/dcm4chee-arc-lang/ に 5.25.1 が存在しないため。&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light/dcm4chee-arc-ui2/pom.xml&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  &amp;lt;dependencies&amp;gt;
+    &amp;lt;dependency&amp;gt;
+      &amp;lt;groupId&amp;gt;org.dcm4che.dcm4chee-arc&amp;lt;/groupId&amp;gt;
+      &amp;lt;artifactId&amp;gt;dcm4chee-arc-lang&amp;lt;/artifactId&amp;gt;
+      &amp;lt;version&amp;gt;${project.version}&amp;lt;/version&amp;gt;
+      &amp;lt;type&amp;gt;war&amp;lt;/type&amp;gt;
+      &amp;lt;scope&amp;gt;runtime&amp;lt;/scope&amp;gt;
+    &amp;lt;/dependency&amp;gt;
+  &amp;lt;/dependencies&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;のversionを&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;      &amp;lt;version&amp;gt;5.24.1&amp;lt;/version&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;5.24.1に書き変える。(もっと正当な方法がありそう)&lt;/p&gt;
+
+&lt;h3 id=&quot;-mysql&quot;&gt;(?) mysql&lt;/h3&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;# rootログイン
+
+create database dcm4chedb;  
+
+# エラーする
+grant all on dcm4chedb.* to `dcm4chee` identified by 'dcm4cheepass';  
+
+# エラーしない
+grant all on dcm4chedb.* to `dcm4chee`;  
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;-2&quot;&gt;(?)&lt;/h3&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;/subsystem=undertow/server=default-server/http-listener=default:write-attribute(name=max-post-size,value=1000000000)
+/subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=max-post-size,value=1000000000) 
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;httpsgithubcomdcm4chedcm4chee-arc-lightwikiinstallationrequirements&quot;&gt;https://github.com/dcm4che/dcm4chee-arc-light/wiki/Installation#requirements&lt;/h3&gt;
+&lt;p&gt;Requirements: Java SE 8 or later - tested with OpenJDK and Oracle JDK (2022-01-19)
+(Java 8 は JDK 1.8)&lt;/p&gt;
+
+&lt;h4 id=&quot;httpsgithubcomdcm4chedcm4che&quot;&gt;https://github.com/dcm4che/dcm4che&lt;/h4&gt;
+&lt;p&gt;コアライブラリである &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4che-core-xx.xx.xx.jar&lt;/code&gt; とユーティリティーコマンド(dcmdumpなど)を提供する。&lt;br /&gt;
+DICOM規格に関する処理を行なっている。&lt;br /&gt;
+文字化けの原因もここ。&lt;/p&gt;
+
+&lt;h4 id=&quot;httpsgithubcomdcm4chedcm4chee-arc-light&quot;&gt;https://github.com/dcm4che/dcm4chee-arc-light&lt;/h4&gt;
+&lt;p&gt;dcm4cheコアライブラリを利用して医療画像管理(PACS)ソフト(DICOM server及びclient)として動く。&lt;/p&gt;
+
+&lt;h4 id=&quot;httpsgithubcomdcm4chedcm4chee-arc-cdi&quot;&gt;https://github.com/dcm4che/dcm4chee-arc-cdi&lt;/h4&gt;
+&lt;p&gt;PACSソフトの古いやつ。気にしない。&lt;/p&gt;
+
+&lt;h4 id=&quot;httpsgithubcomdcm4chedcm4chee-xds&quot;&gt;https://github.com/dcm4che/dcm4chee-xds&lt;/h4&gt;
+&lt;p&gt;IHE(Integrating the Healthcare Enterprise)が管理するXDS(Cross Enterprise Document Sharing)規格の何か。&lt;br /&gt;
+知らない。&lt;/p&gt;
+
+&lt;h2 id=&quot;dicom-の-iso-2022&quot;&gt;DICOM の ISO 2022&lt;/h2&gt;
+
+&lt;h3 id=&quot;iso-2022ecma-35-エスケープシーケンス-の規格&quot;&gt;(ISO 2022≒ECMA-35) エスケープシーケンス の規格&lt;/h3&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;https://www.ecma-international.org/wp-content/uploads/ECMA-35_6th_edition_december_1994.pdf&lt;br /&gt;
+14.3.2 Specifications&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;94文字集合(94-Set)や96-Set, 94n-Set, 96n-SetをG0, G1, G2, G3に呼び出すためのエスケープシーケンスに関する規則&lt;br /&gt;
+G0 を GL に呼び出したり(…)に関する規則&lt;br /&gt;
+DICOMではこれらの一部しか使ってはいけない。&lt;/p&gt;
+
+&lt;h3 id=&quot;dicom-6123-文字レパートリの符号化-の注釈&quot;&gt;&amp;gt;DICOM 6.1.2.3 文字レパートリの符号化 の注釈&lt;/h3&gt;
+&lt;blockquote&gt;
+  &lt;ol&gt;
+    &lt;li&gt;JIS X 0201 の 8 ビット符号表は， G0 符号要素として ISO-IR 14（ローマ字英数字文字）そして G1 符号要素とし ISO-IR 13 （片仮名表音文字）を含む。&lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/blockquote&gt;
+
+&lt;h3 id=&quot;iso-2022-文字コードの概要&quot;&gt;ISO 2022 文字コードの概要&lt;/h3&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;http://web.archive.org/web/20190309025211/http://euc.jp/i18n/charcode.ja.html&lt;br /&gt;
+最終更新 1999.7.31&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;日本語でとても分かりやすくまとめてある。&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt; をやるならまずこれ&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;G0に96n文字集合は指示不可。しかしGLへはG1-G3を使えば(96n文字集合)呼び出し可。&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;この文は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;についてのもの。DICOMではGLはG0, GRはG1と決まっている。&lt;br /&gt;
+したがってDICOMのISO 2022サブセットではGLに96n文字集合は割り当てられない。&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;終端文字と文字集合の対応は登録制になっており、 ECMAという組織が登録簿を管理しています。&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;登録簿の呼ばれ方は&lt;br /&gt;
+・&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ECMA Registry&lt;/code&gt;(探しにくい名前)&lt;br /&gt;
+・&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO国際登録簿&lt;/code&gt;(≒&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR&lt;/code&gt;≒&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO International register&lt;/code&gt;)(探しにくい名前)&lt;br /&gt;
+正式名称: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;INTERNATIONAL REGISTER OF CODED CHARACTER SETS TO BE USED WITH ESCAPE SEQUENCES&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;現在(2022年)では&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;情報規格調査会(ITSCJ)&lt;/code&gt;が管理(ほぼ凍結)。&lt;br /&gt;
+※&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;情報処理学会(IPSJ)&lt;/code&gt;の下部組織である&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;情報規格調査会(ITSCJ)&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;DICOM規格書内で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO Registration Number&lt;/code&gt;を示す場合は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR N&lt;/code&gt;(例:&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO-IR 13&quot;&lt;/code&gt;) という表記が使われる(ハイフンに注目)。&lt;br /&gt;
+スペースで表記される&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO 2022 IR 13&quot;&lt;/code&gt;や、アンダースコアが出現する&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO_IR 13&quot;&lt;/code&gt;といった表記は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Defined Term&lt;/code&gt;(DICOM規格の用語・キーワード)であって&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO Registration Number&lt;/code&gt;を即ち示しているわけではない。&lt;br /&gt;
+これらの表記はDICOM規格(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PS3.3-Table C.12-3. Defined Terms for Single-Byte Character Sets with Code Extensions&lt;/code&gt;)を参照すると(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO 2022 IR 13&quot;&lt;/code&gt;が)&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 13&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;の2つを意味することが読める。&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;https://www.itscj-ipsj.jp/custom_contents/cms/linkfile/ISO-IR.pdf&lt;br /&gt;
+2.1 94-Character graphic character sets with one Intermediate byte&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;具体的な文字集合名とエスケープシーケンスの中間バイトと終端バイトの対応表がある。&lt;br /&gt;
+tag:94 set, 94n set, 96 set, 96n set&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;図形文字集合を中間バッファに割り当てることを「指示する(to designate)」といい、 中間バッファをGL領域に割り当てることを「呼び出す(to invoke)」といいます。&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;DICOMでは invoke は禁止されている。(GLはG0固定、GRはG1固定)&lt;br /&gt;
+(invokeじゃなくdesignateが禁止だったか？DICOM規格書文中にinvokeが出て来る)&lt;/p&gt;
+
+&lt;h4 id=&quot;pydicom使って文字列エンコードするプログラム仮やめた&quot;&gt;pydicom使って文字列エンコードするプログラム(仮)(やめた)&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;EncodeTextIntoDicomSpecificCharacterSet [charsets] [text]
+  if charsets or text starts with &quot;base64:&quot;, the arg is a base64 encoded string of utf-8.
+  if starts with &quot;raw:&quot;, the encoding of the arg is system dependent.
+  e.g. EncodeTextForDicomSpecificCharacterSet 'raw:\ISO 2022 IR 87\ISO 2022 IR 13' 'raw:ﾔﾏﾀﾞ^ﾀﾛｳ=山田^太郎=やまだ^たろう'
+  e.g. EncodeTextForDicomSpecificCharacterSet 'raw:\ISO 2022 IR 87\ISO 2022 IR 13' 'raw:あいｱｲai+uiｳｴうえ-ｵoお'
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;cl-gl-cr-gr-c0-c1-g0-g1&quot;&gt;CL, GL, CR, GR, (C0, C1…), (G0, G1…)&lt;/h3&gt;
+&lt;p&gt;ISO 2022でも規格される。それ以外でも使われている。&lt;br /&gt;
+CL, GL, CR, GR は8bit数値(0-255)を範囲ごとに4つに分けて名前を付けたもの。&lt;br /&gt;
+・L は left、R はright、C は control character(制御文字)、G は graphic character(表示文字)。&lt;br /&gt;
+・左側とは 0x00 - 0x7F (8bit目が0である範囲)、右側とは 0x80 - 0xFF(8bit目が1である範囲)&lt;br /&gt;
+・制御用（CL control left）: 0x00 - 0x1F&lt;br /&gt;
+・図形用（GL graphic left）: 0x20 - 0x7F&lt;br /&gt;
+・制御用（CR control right）: 0x80 - 0x9F&lt;br /&gt;
+・図形用（GR graphic right）: 0xA0 - 0xFF&lt;/p&gt;
+
+&lt;p&gt;図形用範囲にSpaceを含んだり含まなかったり、Deleteを含んだり含まなかったりで(GLとGRの)定義が揺れる。&lt;br /&gt;
+図形だとか制御だとか言っているのは、そういう意味を持った機能をその数値に割り当て使うという意味。&lt;br /&gt;
+図形なら図形と文字を表示するために、制御なら特殊制御用に(バイナリ列に現れても0幅であるようなもの)。&lt;/p&gt;
+
+&lt;p&gt;CL,CR,GL,GR が数値範囲を示すのに対して、(…)&lt;/p&gt;
+
+&lt;p&gt;ISO 2022では C0 は常にCLに対応しているため区別する必要がない。&lt;br /&gt;
+C1 は CR に常に対応しているため区別する必要がない。&lt;/p&gt;
+
+&lt;p&gt;DICOMにおけるISO 2022(サブセット)では&lt;br /&gt;
+G0は常にGLに対応するため区別する必要がない。&lt;br /&gt;
+G1は常にGRに対応するため区別する必要がない。&lt;/p&gt;
+
+&lt;h3 id=&quot;dcm4cheのエンコードデコード実装&quot;&gt;dcm4cheのエンコード/デコード実装&lt;/h3&gt;
+&lt;p&gt;github上にある一番古い実装。あまり変わってない。&lt;br /&gt;
+https://github.com/dcm4che/dcm4che/blob/b0b99302c1858948bd368e877b9a08e845b3d8bf/dcm4che-core/src/main/java/org/dcm4che3/data/SpecificCharacterSet.java&lt;br /&gt;
+https://github.com/dcm4che/dcm4che/blob/b0b99302c1858948bd368e877b9a08e845b3d8bf/dcm4che-core/src/test/java/org/dcm4che3/data/SpecificCharacterSetTest.java&lt;br /&gt;
+テストセットはたぶん規格書から取って来たもの。&lt;br /&gt;
+The reason why “yamada-tarou” test worked well was because switched the character set at the same time as the delimiter.&lt;/p&gt;
+
+&lt;h3 id=&quot;dcm4chespecificcharactersettestjava&quot;&gt;dcm4che/**/SpecificCharacterSetTest.java&lt;/h3&gt;
+&lt;p&gt;Japanese, Korean, Chinese 以外ではエスケープシーケンスが出現しない。&lt;/p&gt;
+
+&lt;h3 id=&quot;dicomに関する半角カナは使わない&quot;&gt;DICOMに関する「半角カナは使わない」&lt;/h3&gt;
+&lt;p&gt;およそ2010年までの文書に多い。&lt;br /&gt;
+読むための処理を書く側には関係がない。&lt;br /&gt;
+DICOMのISO 2022サブセット規格に大きな不備があるわけではない(実運用上の不備はあるが)。&lt;/p&gt;
+
+&lt;h3 id=&quot;dicom規格書日本語訳&quot;&gt;DICOM規格書日本語訳&lt;/h3&gt;
+&lt;p&gt;文字コードに関する部分&lt;br /&gt;
+https://www.jira-net.or.jp/dicom/file/standard/DICOM_PS3.5j_2009_ref.pdf&lt;br /&gt;
+英語&lt;br /&gt;
+https://dicom.nema.org/medical/dicom/current/output/html/part05.html&lt;/p&gt;
+
+&lt;h3 id=&quot;code-extension-techniques-符号拡張技術&quot;&gt;Code Extension Techniques: 符号拡張技術&lt;/h3&gt;
+&lt;p&gt;ISO 2022のバッファへ文字集合を指示する(to designate)ことや、バッファをGLやGRに呼び出す(to invoke)こと。&lt;br /&gt;
+そのエスケープシーケンスのこと。&lt;br /&gt;
+DICOMでは&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;属性特定文字集合 (0008,0005) が複数値である時だけエスケープシーケンスを使ってよい&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;属性特定文字集合に書いた/書いてある文字集合しか使ってはいけない&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DICOM PS3.3-C.12.1.1.2 Specific Character Set&lt;/code&gt; に書いてあるエスケープシーケンスしか使ってはいけない&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;DICOMで使ってもいいエスケープシーケンスの表は以下&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;https://dicom.nema.org/medical/dicom/current/output/html/part03.html&lt;br /&gt;
+Table C.12-3. Defined Terms for Single-Byte Character Sets with Code Extensions&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h3 id=&quot;属性特定文字集合-00080005が単一値である場合のg0とg1の状態&quot;&gt;属性特定文字集合 (0008,0005)が単一値である場合のG0とG1の状態&lt;/h3&gt;
+&lt;p&gt;(※属性特定文字集合が単一値である場合、文字集合の切り替えは行えない。)&lt;br /&gt;
+(※DICOMではGLはG0固定、GRはG1固定)&lt;br /&gt;
+属性特定文字集合が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR_13&lt;/code&gt;の単独値である場合、(字面に反して)&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR 13&lt;/code&gt;(カナ)と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR 14&lt;/code&gt;(Romaji(ほぼASCII))の2つの文字種が利用できる。&lt;br /&gt;
+そして&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 14&lt;/code&gt;(Romaji)は必ず&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;に、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 13&lt;/code&gt;(カナ)は必ず&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1&lt;/code&gt;に割り当てられる。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;がカナで&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1&lt;/code&gt;がRomajiになったりはしない(ISO 2022ではこの状態は合法)。&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;単独値&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;利用できる文字種&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0/G1への割り当て&lt;/code&gt;は以下に規格される。&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;https://dicom.nema.org/medical/dicom/current/output/html/part03.html&lt;br /&gt;
+DICOM PS3.3-Table C.12-2. Defined Terms for Single-Byte Character Sets Without Code Extensions&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h3 id=&quot;note-to-use-the-single-byte-code-table-of-jis-x0201&quot;&gt;Note: To use the single-byte code table of JIS X0201…&lt;/h3&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DICOM PS3.3-C.12.1.1.2 Specific Character Set&lt;/code&gt; の &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Note&lt;/code&gt;&lt;br /&gt;
+なぜわざわざ&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X0201&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 13&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 14&lt;/code&gt;に言及しているのか&lt;br /&gt;
+何を読みとるべきか分からない&lt;br /&gt;
+ただ単に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 6&lt;/code&gt;じゃないの気をつけてってことだろうか&lt;/p&gt;
+
+&lt;h3 id=&quot;属性特定文字集合-00080005が複数値である場合のg0とg1の状態&quot;&gt;属性特定文字集合 (0008,0005)が複数値である場合のG0とG1の状態&lt;/h3&gt;
+&lt;p&gt;ここでも&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;がカナで&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1&lt;/code&gt;がRomajiになったりはしない。&lt;br /&gt;
+初期状態に関しては&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;値 1&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;文字レパートリ&lt;/code&gt;の話を参照。&lt;/p&gt;
+
+&lt;h3 id=&quot;文字レパートリcharacter-repertoireと文字集合character-set&quot;&gt;「文字レパートリ(Character Repertoire)」と「文字集合(Character Set)」&lt;/h3&gt;
+&lt;p&gt;この使い分けはDICOM規格での話。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;は1つあるいは2つの&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;を持つ。&lt;br /&gt;
+規格書内で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Repertoire&lt;/code&gt; と &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Set&lt;/code&gt; の使い分けは徹底されていないが以下の2つは言える。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt; を示す時は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt; と &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt; が使われる。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt; を示す時は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt; が使われて &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt; は使われ&lt;strong&gt;ない&lt;/strong&gt;。&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;に指定できるものは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 6&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 100&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 13&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 87&lt;/code&gt;といったものは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;。だが&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;と表現されることの方が多い。&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 6&lt;/code&gt;指定によって利用可能になる&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 646&lt;/code&gt;(ASCII)は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 13&lt;/code&gt;指定によって利用可能になる&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 13&lt;/code&gt;(Katakana)と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;(Romaji)は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;。&lt;/p&gt;
+
+&lt;p&gt;さらに紛らわしいことに規格書には(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Repertoire&lt;/code&gt;ではない)&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;として&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO/IEC 8859-1&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;TIS 620-2533&lt;/code&gt;などが現れる。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;(Romaji)をGL(G0)に、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;(Katakana)をGR(G1)に持つ規格である。&lt;br /&gt;
+DICOM規格書では文脈や表の位置に応じて「&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;」を「&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0側&lt;/code&gt;」のように読み替える必要がある。&lt;br /&gt;
+決してG0側でRomajiとKatakana(半角カナ)両方が使えるようになったりはしない&lt;br /&gt;
+(決してG1側でRomajiとKatakana(半角カナ)両方が使えるようになったりはしない)&lt;br /&gt;
+DICOMはエスケープシーケンスを制限することでそれを禁止してる。&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;https://dicom.nema.org/medical/dicom/current/output/html/part05.html&lt;br /&gt;
+6.1.2 Graphic Characters&lt;br /&gt;
+A Character Repertoire, or character set, is a collection of Graphic Characters specified independently of their encoding.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h3 id=&quot;dicomデフォルト文字レパートリ&quot;&gt;DICOMデフォルト文字レパートリ&lt;/h3&gt;
+&lt;p&gt;ISO 646:1990(ISO-IR 6: ASCII) のこと&lt;br /&gt;
+G0側にこれが割り当てられる。
+G1側は初期状態では空っぽ。&lt;/p&gt;
+
+&lt;h3 id=&quot;属性特定文字集合-00080005-の値-1-value-1-of-attribute-specific-character-set-00080005&quot;&gt;属性特定文字集合 (0008,0005) の値 1: Value 1 of Attribute Specific Character Set (0008,0005)&lt;/h3&gt;
+&lt;p&gt;「最初の」ということ&lt;br /&gt;
+これは序数。&lt;br /&gt;
+値 0という値は存在しない、そんな場所も存在しない。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO 2022 IR 13\ISO 2022 IR 87&quot;&lt;/code&gt;ならば&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO 2022 IR 13&quot;&lt;/code&gt;のこと&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;\ISO 2022 IR 87&quot;&lt;/code&gt;ならば&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;&quot;&lt;/code&gt;で、この空文字は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO 2022 IR 6&quot;&lt;/code&gt;の省略表現&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;用語-属性特定文字集合-00080005-の値-1-で明記される文字集合の他の文字集合が呼び出されている場合には&quot;&gt;用語: &amp;gt;属性特定文字集合 (0008,0005) の値 1 で明記される文字集合の他の文字集合…が呼び出されている場合には〜&lt;/h3&gt;
+&lt;p&gt;※上記表現は日本語翻訳版( https://www.jira-net.or.jp/dicom/file/standard/DICOM_PS3.5j_2009_ref.pdf )のもの&lt;br /&gt;
+原文は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;a character set other than the one specified in value 1 of the Attribute Specific Character Set (0008,0005), ..., has been invoked&lt;/code&gt;&lt;br /&gt;
+「値 1以外が呼び出されている時は」と読み替えていい。&lt;br /&gt;
+(呼び出す(invoke)はISO 2022用語で、おおよそ「Aを呼び出す」は「キャラクターセットであるAを利用すること」の意味※厳密には違う)&lt;/p&gt;
+
+&lt;p&gt;この文の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;のこと。&lt;br /&gt;
+だから実例は3パターンに分かれる。以下&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Repertoire&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Set&lt;/code&gt;を区別して書く。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;値 1&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;が&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0 Character Set&lt;/code&gt;だけを持つ場合は、「&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;値 1&lt;/code&gt;以外の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0 Character Set&lt;/code&gt;が入っている場合には〜」&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0 Character Set&lt;/code&gt; と &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1 Character Set&lt;/code&gt;を持つ場合、「&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1&lt;/code&gt;どちらかに&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;値 1&lt;/code&gt;以外の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;が入ってる場合には〜入っている側に対して〜」&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1 Character Set&lt;/code&gt;だけを持つ場合、「&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1&lt;/code&gt;に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;値 1&lt;/code&gt;以外の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1 Character Set&lt;/code&gt;が入っている場合には〜」&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h3 id=&quot;dicomはiso-2022のサブセットを使う&quot;&gt;DICOMはISO 2022のサブセットを使う&lt;/h3&gt;
+&lt;p&gt;ISO 2022規格のうち(エンコードに関する)いくつかのエスケープシーケンスを禁止しているという意味。&lt;br /&gt;
+DICOM規格でエンコードした文字列はISO 2022デコーダーでデコードできるといいなということ。&lt;br /&gt;
+しかし以下の理由でデコードが出来るとは限らない。&lt;br /&gt;
+ISO 2022自体がバイナリ列に表現されない了解によって初期状態を決めてよいと規格している。&lt;br /&gt;
+暗黙のエスケープシーケンスがバイナリ列開始の前に存在しているみたいなこと。&lt;br /&gt;
+この暗黙の了解はDICOMでは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;属性特定文字集合 (0008, 0005)&lt;/code&gt;によって決まる&lt;br /&gt;
+また区切り文字(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;CR&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LF&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;FF&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;^&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;\\&lt;/code&gt; , &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;=&lt;/code&gt;)で文字集合の呼び出し状態が変わる。&lt;br /&gt;
+(※何が区切り文字かはDICOM属性ごとに変わる)&lt;/p&gt;
+
+&lt;h3 id=&quot;用語-実装水準implementation-level&quot;&gt;用語: 実装水準(Implementation level)&lt;/h3&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DICOM 6.1.2.5.4 Levels of Implementation and Initial Designation&lt;/code&gt; に出てくる&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Implementation level: [ISO/IEC 2022] Level 1 - Elementary 7-bit code (code-level identifier 1)&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Implementation level: [ISO/IEC 2022] Level 1 - Elementary 8-bit code (code-level identifier 11)&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Implementation level: [ISO/IEC 2022] Level 4 - Redesignation of Graphic Character Sets within a Code (code-level identifier 14)&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;実装水準： ISO/IEC 2022 水準 1－基本 7 ビット符号（符号水準識別子 1） &lt;/code&gt;&lt;br /&gt;
+とか書いてあるものが何か。&lt;/p&gt;
+
+&lt;p&gt;まず&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Level 1 Elementary 7-bit code&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Level 4 Redesignation of Graphic Character Sets within a Code&lt;/code&gt;が示すものはこれ&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;https://www.ecma-international.org/wp-content/uploads/ECMA-35_6th_edition_december_1994.pdf&lt;br /&gt;
+ISO 2022/ECMA-35: 10 Versions and levels of implementation&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;ECMA-35規格書では bit数→実装概要 の順で書いてある。&lt;br /&gt;
+(10.3.1 8-bit codes): Level 1 - Elementary 8-bit Code&lt;br /&gt;
+(10.3.1 8-bit codes): Level 4 - Redesignation of Graphic Character Sets Within a Code&lt;br /&gt;
+(10.3.3 7-bit codes): Level 1 - Elementary 7-bit Code&lt;/p&gt;
+
+&lt;p&gt;次に &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;code-level identifier N&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;符号水準識別子&lt;/code&gt; なるもの&lt;br /&gt;
+Nが示すのは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ECMA-35: 15.2.2 Specification: Table 7 Code Structure Facilities for the Announcer Function (ACS)&lt;/code&gt;の &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Facility Number&lt;/code&gt;のこと。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;code-level&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;implementation level&lt;/code&gt;はほぼ同義語&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Facility Number 1: 04/01 The G0 code element shall be used. Designation of G0 also invokes it into the GL area. No locking-shift functions shall be used.
+In 8-bit code: the GR area is not used. (*)&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Facility Number 11: 04/11 An 8-bit code is used.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Facility Number 14: 04/14 Level 3 of ECMA-43 shall be used.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;gt;ECMA-43の水準3を使います&lt;/code&gt;またもや参照。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ECMA-43&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873: 8‐Bit Coded Character Set Structure and Rules&lt;/code&gt;と同義&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt; で使う文字集合を作るため使うための規格&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;にも&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Implementation level&lt;/code&gt;なる用語が出るがそれは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;と同じ意味のものだが(…)&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 code-level identifier 12&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873 level 1&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 code-level identifier 13&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873 level 2&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 code-level identifier 14&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873 level 3&lt;/code&gt;&lt;br /&gt;
+にそれぞれ紐づく。&lt;br /&gt;
+(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;を使う時は、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;code-level&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;のlevelが決まる(たぶん)。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;以外が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;を使う時は知らない)&lt;/p&gt;
+
+&lt;h4 id=&quot;書くのに使うemacs-lisp&quot;&gt;書くのに使うemacs lisp&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;(defun rc (x &amp;amp;optional s)
+  &quot;数値をDICOMやISOで使われる16進数1ケタずつを10進数で表現する形式に変換する。0x1B は \&quot;01/11\&quot;&quot;
+  (setf s (or s &quot;&quot;))
+  (let ((a (mod (/ x 16) 16))
+	(b (mod x 16))
+	(c (/ x 16 16)))
+    (setf s (if s (concat &quot; &quot; s) &quot;&quot;))
+    (setf s (format &quot;%02d/%02d%s&quot;
+		    a b s))
+    (if (= c 0)
+	s
+      (rc c s))))
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;-print-debug&quot;&gt;(???) print debug&lt;/h3&gt;
+&lt;h5 id=&quot;1&quot;&gt;1&lt;/h5&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Attributes attrs = result.getStoredAttributes();&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;LOG.info(&quot;AAAAA createInstance(804)805 {}&quot;, result.getStoredAttributes().getString(Tag.InstitutionName));
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;h5 id=&quot;2&quot;&gt;2&lt;/h5&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    public static void printerr(String message)
+    {
+        StackTraceElement[] st = (new Throwable()).getStackTrace();
+        String methodName = st[1].getMethodName();
+        String className = st[1].getClassName();
+        int line = st[1].getLineNumber();
+		
+        LOG.info(className + &quot;.&quot; + methodName + &quot;:&quot; + line + &quot;: &quot; + message);
+    }
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;-dcm4chee-arc-light-uiから&quot;&gt;(?) dcm4chee-arc-light uiから&lt;/h4&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set	(0008,0005)	CS	,ISO 2022 IR 87,ISO 2022 IR 13&lt;/code&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;-dcm4chee-arc-light&quot;&gt;(???) dcm4chee-arc-light&lt;/h4&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;coerceAttributes&lt;/code&gt;でseriesのattributesにcoerceされる。&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;try { printerr(&quot;series-&quot; + ctx.getStoreSession().getCachedSeries(ctx.getStudyInstanceUID(), ctx.getSeriesInstanceUID()).getAttributes().getString(Tag.InstitutionName)); } catch(Throwable e) {}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;-3&quot;&gt;(???)&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&amp;gt;&amp;gt;&amp;gt; b'(B'.hex() =&amp;gt; '2842'
+&amp;gt;&amp;gt;&amp;gt; b'$B'.hex() =&amp;gt; '2442'
+&amp;gt;&amp;gt;&amp;gt; hex( 9282) =&amp;gt; '0x2442'
+&amp;gt;&amp;gt;&amp;gt; hex(10569) =&amp;gt; '0x2949'
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;-4&quot;&gt;(???)&lt;/h4&gt;
+&lt;p&gt;第1表現&lt;br /&gt;
+  ESC: エスケープシーケンス開始&lt;br /&gt;
+第2表現(中間)&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th style=&quot;text-align: center&quot;&gt;.&lt;/th&gt;
+      &lt;th style=&quot;text-align: center&quot;&gt;.&lt;/th&gt;
+      &lt;th style=&quot;text-align: center&quot;&gt;.&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;(&quot;&lt;/code&gt;&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;0x28&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;G0 に「94文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$&quot;&lt;/code&gt;&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;0x24&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;G0 に「94n文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$(&quot;&lt;/code&gt;&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;0x2428&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;G0 に「94n文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;なし&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;.&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;G0 に「96文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;なし&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;.&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;G0 に「96n文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$)&quot;&lt;/code&gt;&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;0x2429&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;G1 に「94n文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$-&quot;&lt;/code&gt;&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;0x242d&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;G1 に「96n文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;第3表現(終端)&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;”@”: 4/0:&lt;/li&gt;
+  &lt;li&gt;“A”: 4/1:&lt;/li&gt;
+  &lt;li&gt;“B”: 4/2:&lt;/li&gt;
+  &lt;li&gt;“J”: 4/10: 0x4A&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;DICOMでの表現&lt;/th&gt;
+      &lt;th&gt;.&lt;/th&gt;
+      &lt;th&gt;慣用ASCII&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;10進数&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;16進数&lt;/th&gt;
+      &lt;th&gt;概要摘要&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;ISO 2022 IR 87&lt;/td&gt;
+      &lt;td&gt;JIS_X_208&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ESC ( B&lt;/code&gt;&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;10306&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0x2842&lt;/td&gt;
+      &lt;td&gt;漢字&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;ISO 2022 IR 13&lt;/td&gt;
+      &lt;td&gt;JIS_X_201&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ESC $ B&lt;/code&gt;&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;9282&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;0x2442&lt;/td&gt;
+      &lt;td&gt;92番の文字にバックスラッシュ(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;＼&lt;/code&gt;の半角)の替わりに円記号(‘¥’)が、&lt;br /&gt;126番にチルダ (‘~’) の替わりにオーバーライン (‘‾’)&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;(上記出典はどこだったか？&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 13&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;を示し&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 13&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;の2つを利用することを宣言するものだが…？)&lt;/p&gt;
+
+&lt;p&gt;DICOMではC1は使わない。&lt;/p&gt;
+
+&lt;h3 id=&quot;java-stringgetbytes-エンコーダー&quot;&gt;java String::getBytes エンコーダー&lt;/h3&gt;
+&lt;p&gt;javaのエンコーダーは &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4che/**/SpecificCharacterSet.java&lt;/code&gt; の requirement を満たしているように見える&lt;/p&gt;
+
+&lt;p&gt;“ISO-8859-1”, “ISO-8859-2”, “ISO-8859-3”, “ISO-8859-4”, “ISO-8859-5”, “ISO-8859-6”, “ISO-8859-7”, “ISO-8859-8”, “ISO-8859-9”&lt;br /&gt;
+G1文字はすべて0x80以上&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;if (allG1(&quot;　、。·‥…¨〃­―∥＼∼‘’가각간갇갈갉갊감갑값갓갔강갖갗嬉希憙憘戱晞曦熙熹熺犧禧稀羲詰&quot;.getBytes(&quot;EUC-KR&quot;))) {
+    System.out.print(&quot;OK EUC-KR/ISO 2022 IR 149/KS_X_1001&quot;);
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;検証範囲では0x80以上&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;if (allG1(&quot;・啊阿埃挨哎唉哀皑癌蔼矮艾碍爱隘黟黢黩黧黥黪黯鼢鼬鼯鼹鼷鼽鼾齄&quot;.getBytes(&quot;GB2312&quot;))) {
+     System.out.print(&quot;OK(1) GB2312\n&quot;);
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;検証範囲では0x80以上&lt;/p&gt;
+
+&lt;h3 id=&quot;-5&quot;&gt;(???)&lt;/h3&gt;
+
+&lt;p&gt;CS-7: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;\ISO 2022 IR 87\ISO 2022 IR 13&quot;&lt;/code&gt; (値1:&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;空(ISO 2022 IR 6)&lt;/code&gt; 値2:&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 87 かな漢字&lt;/code&gt; 値3:&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 13 ローマ字と半角カナ&lt;/code&gt;)&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;CS-7:
+(0008, 0005) Specific Character Set              CS: ['', 'ISO 2022 IR 87', 'ISO 2022 IR 13']
+(0020, 4000) Image Comments                      LT: 'aｱあaあｱｱaあｱあaあaｱあｱa# aｱあ aあｱ ｱaあ ｱあa あaｱ あｱa #'
+61 1b 29 49 b1 1b 24 42 24 22 1b 28 42 61 1b 24 42 24 22 1b 29 49 b1 b1 1b 28 42 61 1b 24 42 24 22 1b 29 49 b1 1b 24 42 24 22 1b 28 42 61 1b 24 42 24 22 1b 28 42 61 1b 29 49 b1 1b 24 42 24 22 1b 29 49 b1 1b 28 42 61 23 20 61 1b 29 49 b1 1b 24 42 24 22 1b 28 42 20 61 1b 24 42 24 22 1b 29 49 b1 1b 28 42 20 1b 29 49 b1 1b 28 42 61 1b 24 42 24 22 1b 28 42 20 1b 29 49 b1 1b 24 42 24 22 1b 28 42 61 20 1b 24 42 24 22 1b 28 42 61 1b 29 49 b1 1b 28 42 20 1b 24 42 24 22 1b 29 49 b1 1b 28 42 61 20 23 20
+
+popnet:
+(0008, 0005) Specific Character Set              CS: ['', 'ISO 2022 IR 87', 'ISO 2022 IR 13']
+(0008, 1030) Study Description                   LO: 'aｱあaあｱｱaあｱあaあaｱあｱa# aｱあ aあｱ ｱaあ ｱあa あaｱ あｱa #'
+61 1b 29 49 b1 1b 28 42 1b 24 42 24 22 1b 28 42 61 1b 24 42 24 22 1b 28 42 1b 29 49 b1 b1 1b 28 42 61 1b 24 42 24 22 1b 28 42 1b 29 49 b1 1b 28 42 1b 24 42 24 22 1b 28 42 61 1b 24 42 24 22 1b 28 42 61 1b 29 49 b1 1b 28 42 1b 24 42 24 22 1b 28 42 1b 29 49 b1 1b 28 42 61 23 20 61 1b 29 49 b1 1b 28 42 1b 24 42 24 22 1b 28 42 20 61 1b 24 42 24 22 1b 28 42 1b 29 49 b1 1b 28 42 20 1b 29 49 b1 1b 28 42 61 1b 24 42 24 22 1b 28 42 20 1b 29 49 b1 1b 28 42 1b 24 42 24 22 1b 28 42 61 20 1b 24 42 24 22 1b 28 42 61 1b 29 49 b1 1b 28 42 20 1b 24 42 24 22 1b 28 42 1b 29 49 b1 1b 28 42 61 20 23 20
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;dcm4chespecificcharactersetjava-変更メモ&quot;&gt;dcm4che/**/SpecificCharacterSet.java 変更メモ&lt;/h4&gt;
+
+&lt;p&gt;DICOMではISO-IRごとにG0に指示できるかG1に指示できるかの制約がある。&lt;br /&gt;
+コードの属性に関する記述を抜粋&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;ISO_646(true, 0x2842, 0, 1),
+ISO_8859_1(true, 0x2842, 0x2d41, 1),
+ISO_8859_2(true, 0x2842, 0x2d42, 1),
+ISO_8859_3(true, 0x2842, 0x2d43, 1),
+ISO_8859_4(true, 0x2842, 0x2d44, 1),
+ISO_8859_5(true, 0x2842, 0x2d4c, 1),
+ISO_8859_6(true, 0x2842, 0x2d47, 1),
+ISO_8859_7(true, 0x2842, 0x2d46, 1),
+ISO_8859_8(true, 0x2842, 0x2d48, 1),
+ISO_8859_9(true, 0x2842, 0x2d4d, 1),
+JIS_X_201(true, 0x284a, 0x2949, 1),
+TIS_620(true, 0x2842, 0x2d54, 1),
+JIS_X_208(false, 0x2442, 0, 1),
+JIS_X_212(false, 0x242844, 0, 2),
+KS_X_1001(false, 0x2842, 0x242943, -1),
+GB2312(false, 0x2842, 0x242941, -1),
+UTF_8(true, 0, 0, -1),
+GB18030(false, 0, 0, -1);
+
+Codec(boolean containsASCII, int escSeq0, int escSeq1, int bytesPerChar)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;escSeq0 とは G0 に割り当てる時のエスケープシーケンス。&lt;br /&gt;
+escSeq1 とは G1 に割り当てる時のエスケープシーケンス。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;KS_X_1001&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;GB2312&lt;/code&gt;に同じ誤りあり。どちらもG1に割り当てられる目的でしかDICOMでは使われない。&lt;br /&gt;
+&lt;em&gt;変更&lt;/em&gt;&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;KS_X_1001(false, 0, 0x242943, -1),
+GB2312(false, 0, 0x242941, -1),
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;strlen&lt;/p&gt;
+
+&lt;h3 id=&quot;chinese_long_text_gb2312_bytes&quot;&gt;CHINESE_LONG_TEXT_GB2312_BYTES&lt;/h3&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;gt;Example K.3-1. Example of Long Text Value Representation in the Chinese Language with GB2312 G1&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Specific Character Set: (0008,0005) \ISO 2022 IR 58
+Character String (with CR LF after each line):
+1) 第一行文字。
+2) 第二行文字。
+3) 第三行文字。 
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;閉じ括弧とスペースが含まれる。&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; Character encoded representation (GB2312):
+    0x31 0x2e 0x1B 0x24 0x29 0x41 0xB5 0xDA 0xD2 0xBB 0xD0 0xD0 0xCE 0xC4 0xD7 0xD6 0xA1 0xA3 0x0D 0x0A
+    0x32 0x2e 0x1B 0x24 0x29 0x41 0xB5 0xDA 0xB6 0xFE 0xD0 0xD0 0xCE 0xC4 0xD7 0xD6 0xA1 0xA3 0x0D 0x0A
+    0x33 0x2e 0x1B 0x24 0x29 0x41 0xB5 0xDA 0xC8 0xFD 0xD0 0xD0 0xCE 0xC4 0xD7 0xD6 0xA1 0xA3 0x0D 0x0A
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;”)” は 0x29 だが上記には 0x2e 、それは ASCII の dot “.”&lt;br /&gt;
+規格に誤りあり。
+Encoded String側を修正してTestへ。&lt;/p&gt;
+
+&lt;h3 id=&quot;korean_long_text&quot;&gt;KOREAN_LONG_TEXT&lt;/h3&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;gt;Example I.3-1. Example of Long Text Value Representation in the Korean Language Without Explicit Escape Sequences Between Character Sets&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;古い
+[1b 24 29 43] 54 68 65 20 31 73 74 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 b1 e6 b5 bf 2e [0d 0a] [1b 24 29 43] 54 68 65 20 32 6e 64 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 b1 e6 b5 bf 2c 20 74 6f 6f 2e 0d 0a 54 68 65 20 33 72 64 20 6c 69 6e 65 2e&lt;/p&gt;
+
+&lt;p&gt;新しい
+54 68 65 20 31 73 74 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 [1b 24 29 43] b1 e6 b5 bf 2e [0d 0a] 54 68 65 20 32 6e 64 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 [1b 24 29 43] b1 e6 b5 bf 2c 20 74 6f 6f 2e 0d 0a 54 68 65 20 33 72 64 20 6c 69 6e 65 2e&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Fix #976 : ISO 2022 text encoding issue
+
+ * Remove escape sequence(G0-DESIGNATE ASCII) of Codec.KS_X_1001 and
+     Codec.GB2312
+ * Update the Chinese test pattern with DICOM PS3.5 2021e
+ * Divide the Korean test pattern two parts, encode and decode
+
+The old source code misunderstood that the codec GR(G1) characters could
+be used even when used G0-EscSeq of the codec, and vice versa. This
+caused problems when complex switches were needed, like Japanese.
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;</content><author><name></name></author><summary type="html">dcm4che / DICOM / ISO 2022 / 日本語処理</summary></entry></feed>

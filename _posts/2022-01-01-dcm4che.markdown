@@ -1,0 +1,858 @@
+---
+layout: post
+title:  "dcm4cheの文字化け"
+permalink: /2022-01--dcm4che.html
+date: 2022-02-02
+---
+
+dcm4che / DICOM / ISO 2022 / 日本語処理
+
+## 文字化け不具合を直しました
+`dcm4che` や `dcm4chee-arc-light` で `"あaあ"` みたいに全角→半角→全角の時に文字化けする不具合があります。  
+
+直したものを本家 https://github.com/dcm4che/dcm4che に pull request してますが放置され中なんで修正版を配布します。  
+
+[ダウンロード](https://github.com/itr-tert/dcm4che-modmojibake-download)
+
+[変更箇所](https://github.com/itr-tert/dcm4che/commit/175cd6e58771a77549d5bbd15f3bc8bfd0fa419a)
+
+### この対策版で改善できる不具合
+
+不具合修正版を適用した後に`dcm4chee-arc-light`が受信したDICOMファイルが対象です。
+(適用前のデータについては次項参照)
+
+1. `Specific Character Set (0008,0005)`に不備ないこと
+
+2. 文字列バイナリが異常ではないこと
+
+1と2を満たしていたにも関わらず文字化けしていた場合は改善が期待できます。
+
+`Specific Character Set (0008,0005)`の不備は外国製の検査ステーションや検査機を使っている場合に多いです。  
+これらの製品は、日本語が入力出来ているように見えて`Specific Character Set (0008,0005)`に`"ISO IR_100"`(Latin alphabet No.1)しか指定されていないDICOMファイルを作り出していることがあります。(DICOM規格違反)  
+そういったデータは今回の文字化け不具合修正版でも文字化けします。
+
+期待通りの文字列として扱うには、`dcm4chee-arc-light`に`DICOMファイル`を入れる前に加工する必要あり。  
+
+* (多くの日本製PACSのように)`Specific Character Set (0008,0005)`を無視して文字列バイナリを解釈してから
+
+* `Specific Character Set (0008,0005)`を使っている文字レパートリに合わせ書き出す
+
+* この加工したDICOMファイルを`dcm4chee-arc-light`に送信
+
+こういうproxyが必要ですが、たぶんない。
+
+### すでに保存している文字化けデータ
+
+現時点で取れる修正方法は
+
+* ファイルからデータベースを再構築する  
+  (新しくデータベースを割り当てて全DICOMファイルを読ませる。など)
+
+* DICOMデータ(インスタンス)ひとつひとつに対して
+  
+  * `dcm4chee-arc-light`からインスタンスをファイルへエクスポート(C-GETやC-MOVEだと文字化け後DICOMが出てくるのでWADOで)
+  
+  * `dcm4chee-arc-light`からそのインスタンスを削除
+  
+  * `dcm4chee-arc-light`にさっきのインスタンスを送信
+
+この2通りです。
+
+`dcm4chee-arc-light`は`dcmファイル`を受け取ると
+
+1. デコードしてデータベースへ(`インデックス`)
+2. デコードしてエンコードしたものをデータベースへ(`ブロブ`)
+3. ほぼ元と同じデータをファイルとして(`ファイル`)
+
+という3種類の保存を行ないます。  
+このうち`インデックス`と`ファイル`は意味上は文字化けしていません(保存された生`ファイル`は文字化けしていないが、DICOM規格による送信では`ブロブ`利用による文字化けが起きる)。  
+
+* だから文字化け対応版環境で`ファイル`から`ブロブ`を再生成する処理をするか  
+
+* あるいは`dcm4chee-arc-light`から削除して再登録すれば  
+
+別データベースを用意することなく文字化けを修正できますが、  
+それをするツールはたぶんない。  
+
+## dcm4chee-arc-light 雑記
+
+### dcm4chee-arc-light インストール時に決めなければいけないことリスト
+
+それと調べておかなければいけないことリスト
+
+* 調べておく: データベースのルートユーザー名とパスワード
+
+* dcm4chee-arc-light用のデータベースユーザー名とパスワード
+
+* dcm4chee-arc-light用のテーブル名
+
+* jdk を置く場所(そこが環境変数`JAVA_HOME`になる)
+
+* wildfly を置く場所(java以外で dcm4chee-arc-light の実行に必要なファイルはここ以下に集約される)
+
+### (?)
+```
+(?) 例
+mysql: user: dcm4chee  
+mysql: pass: dcm4cheepass  
+mysql: database-name: dcm4chedb  
+
+環境変数: PATH, JAVA_HOME  
+```
+
+```
+(?) 例
+/subsystem=datasources/jdbc-driver=mysql:add(driver-name=mysql,driver-module-name=com.mysql)
+
+data-source add --name=PacsDS \
+     --driver-name=mysql \
+     --connection-url=jdbc:mysql://localhost:3306/dcm4chedb?serverTimezone=Asia/Tokyo \
+     --jndi-name=java:/PacsDS \
+     --user-name=dcm4chee \
+     --password=dcm4cheepass
+
+deploy dcm4chee-arc-light/dcm4chee-arc-ear/target/dcm4chee-arc-ear-5.25.1-mysql.ear
+deploy dcm4chee-arc-light/dcm4chee-arc-ui2/target/dcm4chee-arc-ui2-5.25.1.war
+```
+
+http://localhost:18080/dcm4chee-arc/ui2/  
+http://localhost:8080/dcm4chee-arc/ui2/  
+
+### dcm4chee-arc-light バージョンアップ
+方法はあるがドキュメントはみつからない。  
+`update-*.sql` と `update-*.ldif` をそれぞれ適用する。  
+(...)
+
+### data-sourceの記述を間違えた場合は
+`jboss-cli`上で`data-source remove --name=PacsDS`で消せる  
+
+ちなみに `/subsystem=datasources:read-resource` で登録済の`data-source`一覧が得られる。
+
+
+### (?)
+```
+% cp mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar modules/com/mysql/main
+% emacsclient modules/com/mysql/main/module.xml  
+書き換え 25 -> 27  
+```
+
+### エラー
+#### エラー例 (jboss.persistenceunit とか org.hibernate)
+```
+[standalone@localhost:9990 /] deploy ../dcm4chee-arc-5.24.2-mysql/deploy/dcm4chee-arc-ear-5.24.2-mysql.ear
+{"WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:" => {"Operation step-2" => {"WFLYCTL0080: Failed services" => {"jboss.persistenceunit.\"dcm4chee-arc-ear-5.24.2-mysql.ear#dcm4chee-arc\"" => "org.hibernate.service.spi.ServiceException: Unable to create requested service [org.hibernate.engine.jdbc.env.spi.JdbcEnvironment]
+    Caused by: org.hibernate.service.spi.ServiceException: Unable to create requested service [org.hibernate.engine.jdbc.env.spi.JdbcEnvironment]
+    Caused by: org.hibernate.HibernateException: Access to DialectResolutionInfo cannot be null when 'hibernate.dialect' not set"}}}}
+```
+上記理由: data-source の記述が間違っている。`jboss-cli`で`data-source remove --name=PacsDS`としてdata-sourceを一度消して再登録する。
+
+#### エラー例 (/PacsDS is missing [jboss.jdbc-driver.mysql])
+```
+14:52:21,165 INFO  [org.jboss.ws.common.management] (MSC service thread 1-8) JBWS022052: Starting JBossWS 5.3.0.Final (Apache CXF 3.3.2) 
+14:52:21,174 ERROR [org.jboss.as.controller.management-operation] (Controller Boot Thread) WFLYCTL0013: Operation ("add") failed - address: ([
+    ("subsystem" => "datasources"),
+    ("data-source" => "PacsDS")
+]) - failure description: {
+    "WFLYCTL0412: Required services that are not installed:" => ["jboss.jdbc-driver.mysql"],
+    "WFLYCTL0180: Services with missing/unavailable dependencies" => [
+        "jboss.driver-demander.java:/PacsDS is missing [jboss.jdbc-driver.mysql]",
+        "org.wildfly.data-source.PacsDS is missing [jboss.jdbc-driver.mysql]"
+    ]
+}
+14:52:21,303 ERROR [org.jboss.as.controller.management-operation] (Controller Boot Thread) WFLYCTL0013: Operation ("add") failed - address: ([
+    ("subsystem" => "datasources"),
+    ("data-source" => "PacsDS")
+]) - failure description: {
+    "WFLYCTL0412: Required services that are not installed:" => [
+        "jboss.jdbc-driver.mysql",
+        "jboss.jdbc-driver.mysql"
+    ],
+    "WFLYCTL0180: Services with missing/unavailable dependencies" => [
+        "jboss.driver-demander.java:/PacsDS is missing [jboss.jdbc-driver.mysql]",
+        "org.wildfly.data-source.PacsDS is missing [jboss.jdbc-driver.mysql]",
+        "org.wildfly.data-source.PacsDS is missing [jboss.jdbc-driver.mysql]"
+    ]
+}
+14:52:21,336 INFO  [org.jboss.as.controller] (Controller Boot Thread) WFLYCTL0183: Service status report
+```
+上記理由: `data-source`が間違っている。あるいは、`jdbc-driver`を`wildfly`が読み込めていない(上の例では`mysql`の`jdbc-driver`)。  
+`wildfly-*/modules/com/mysql/main/`に`mysql-connector-java-*.jar`のようなファイルがあるかどうか確認。  
+(存在しないなら`"データベース名" jdbc driver download`とかで探してきて配置する)
+
+次に`wildfly-*/modules/com/mysql/main/module.xml`の内容を確認して`<resource-root path="mysql-connector-java-5.1.36-bin.jar"/>`とか書いてある行が実在しているファイルを指しているか確認する。  
+存在しているjarファイルを指すように書き換える。  
+
+#### エラー例
+```
+Caused by: org.jboss.msc.service.ServiceNotFoundException: Service service jboss.ejb.default-resource-adapter-name-service not found
+```
+上記理由: `wildfly-*/standalone/configuration/dcm4chee-arc.xml` の記述がおかしい。  
+バージョンアップ時に起きる。  
+インストール作業での`cp standalone.xml dcm4chee-arc.xml`とするか`cp standalone-full.xml dcm4chee-arc.xml`とするかの選択が間違っている。
+
+#### エラー例 (LDAP serverへ繋がらない)
+```
+{"WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:" => {"Operation step-2" => {"WFLYCTL0080: Failed services" => {"jboss.deployment.subunit.\"dcm4chee-arc-ear-5.24.2-mysql.ear\".\"dcm4chee-arc-service-5.24.2.jar\".component.ArchiveServiceImpl.START" => "java.lang.IllegalStateException: WFLYEE0042: Failed to construct component instance  
+    Caused by: java.lang.IllegalStateException: WFLYEE0042: Failed to construct compone
+nt instance
+    Caused by: javax.ejb.EJBException: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@64a7c974
+    Caused by: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@64a7c974
+    Caused by: java.lang.reflect.InvocationTargetException
+    Caused by: javax.enterprise.inject.CreationException
+    Caused by: org.dcm4che3.conf.api.ConfigurationException: javax.naming.Communication
+Exception: localhost:389 [Root exception is java.net.ConnectException: 接続を拒否されました (Connection refused)]
+    Caused by: javax.naming.CommunicationException: localhost:389 [Root exception is java.net.ConnectException: 接続を拒否されました (Connection refused)]
+    Caused by: java.net.ConnectException: 接続を拒否されました (Connection refused)"}}}}
+```
+#### 上記理由
+LDAP serverへ繋がらない。  
+上記例の場合は`ポート389`が沈黙している。  
+どのポートを見に行くかはファイル`wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties`の
+```
+ java.naming.provider.url=ldap://localhost:389/dc=dcm4che,dc=org
+```
+の数字部分で決まる。変更したら`wildfly`の再起動。(よく使われるのは 10389 と 389)
+
+#### エラー例 `(LDAP: error code 49 - INVALID_CREDENTIALS)`
+```
+{"WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:" => {"Operation step-2" => {"WFLYCTL0080: Failed services" => {"jboss.deployment.subunit.\"dcm4chee-arc-ear-5.18.0-mysql.ear\".\"dcm4chee-arc-service-5.18.0.jar\".component.ArchiveServiceImpl.START" => "java.lang.IllegalStateException: WFLYEE0042: Failed to construct component instance
+    Caused by: java.lang.IllegalStateException: WFLYEE0042: Failed to construct component instance
+    Caused by: javax.ejb.EJBException: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@6151faa8
+    Caused by: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@6151faa8
+    Caused by: java.lang.reflect.InvocationTargetException
+    Caused by: javax.enterprise.inject.CreationException
+    Caused by: org.dcm4che3.conf.api.ConfigurationException: javax.naming.AuthenticationException: [LDAP: error code 49 - INVALID_CREDENTIALS: Bind failed: Attempt to lookup non-existant entry: cn=admin,dc=dcm4che,dc=org]
+    Caused by: javax.naming.AuthenticationException: [LDAP: error code 49 - INVALID_CREDENTIALS: Bind failed: Attempt to lookup non-existant entry: cn=admin,dc=dcm4che,dc=org]"}}}}
+
+  java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
+  java.naming.security.credentials=secret
+```
+#### 上記理由
+`wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties`にあるLDAP serverへ繋ぐための認証情報がおかしい(dcm4chee/wildflyはLDAPサーバーへは到達できている)
+```
+  java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
+  java.naming.security.credentials=secret
+```
+この2行のどちらか。  
+原因に多いのはprincipalの方。  
+LDAPサーバーの設定を見て書き直す。  
+`java.naming.security.principal=uid=admin,ou=system` にすれば接続できる場合もあるが、これが上手く行く場合は .ldif ファイルを使った導入作業に何か失敗している。
+
+#### エラー例 (No enum constant org.dcm4chee.arc.conf.xxx)
+```
+{"WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:" => {"Operation step-2" => {"WFLYCTL0080: Failed services" => {"jboss.deployment.subunit.\"dcm4chee-arc-ear-5.18.0-mysql.ear\".\"dcm4chee-arc-service-5.18.0.jar\".component.ArchiveServiceImpl.START" => "java.lang.IllegalStateException: WFLYEE0042: Failed to construct component instance
+    Caused by: java.lang.IllegalStateException: WFLYEE0042: Failed to construct component instance
+    Caused by: javax.ejb.EJBException: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@550d320b
+    Caused by: org.jboss.weld.exceptions.WeldException: WELD-000049: Unable to invoke private void org.dcm4chee.arc.impl.ArchiveDeviceProducer.init() on org.dcm4chee.arc.impl.ArchiveDeviceProducer@550d320b
+    Caused by: java.lang.reflect.InvocationTargetException
+    Caused by: java.lang.IllegalArgumentException: No enum constant org.dcm4chee.arc.conf.Entity.UPS"}}}}
+```
+```
+    Caused by: java.lang.IllegalArgumentException: No enum constant org.dcm4chee.arc.conf.SPSStatus.CANCELLED
+```
+こういったメッセージ(`No enum constant org.dcm4chee.arc.conf.xxx`) は LDAP Server のセットアップが失敗している状態(dcm4chee/wildflyはLDAPサーバーへ到達できていて、LDAP利用のための認証も出来ている)  
+よくわからなければ LDAP Server を削除して1からやりなおすのが楽。  
+(※`CANCELLED`に限れば、これは誤字でどこからかのバージョンで修正され`CANCELED`になった。)
+
+
+### wildfly設定反映
+使用するポートやログの設定が書いてある  
+`wildfly-*/standalone/configuration/dcm4chee-arc.xml`  
+このファイルを編集(port番号を変えたり)した場合は  
+`wildfly-*/bin/standalone.sh -c dcm4chee-arc.xml`  
+`wildfly-*/bin/standalone.bat -c dcm4chee-arc.xml`  
+を再起動する必要がある。
+
+
+### 相性問題
+```
+20:55:58,478 ERROR [org.jboss.resteasy.resteasy_jaxrs.i18n] (default task-14) RESTEASY002020: Unhandled asynchronous exception, sending back 500: org.jboss.resteasy.spi.UnhandledException: java.lang.IncompatibleClassChangeError: Expected static method org.jboss.resteasy.spi.ResteasyProviderFactory.getContextData(Ljava/lang/Class;)Ljava/lang/Object;
+```
+`dcm4chee-arc-5.24.2-mysql`, `openjdk-12`, `wildfly-26.0.0.Final`  
+wildfly-26はダメ(新しすぎ)
+
+### 相性問題
+```
+{"WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:" => {"Operation step-2" => {"WFLYCTL0080: Failed services" => {"jboss.deployment.subunit.\"dcm4chee-arc-ear-5.24.2-mysql.ear\".\"dcm4chee-arc-pdq-scheduler-5.24.2.jar\".INSTALL" => "WFLYSRV0153: Failed to process phase INSTALL of subdeployment \"dcm4chee-arc-pdq-scheduler-5.24.2.jar\" of deployment \"dcm4chee-arc-ear-5.24.2-mysql.ear\"
+```
+|出る|`dcm4chee-arc-5.24.2-mysql`, `openjdk-17.0.1`, `wildfly-17.0.1.Final`|
+|-|-|
+|出ない|`dcm4chee-arc-5.24.2-mysql`, `openjdk-12`, `wildfly-17.0.1.Final`|
+
+openjdk-17.0.1はダメ(新しすぎ)
+
+### 相性問題
+
+|.|.|
+|-|-|
+|Apache DS 2.0.0-M25|`dicom.ldif`を`import`した後、再起動不可|
+|Apache DS 2.0.0-M24|可|
+|Apache DS 2.0.0-M9|可|
+
+https://directory.apache.org/apacheds/download-old-versions.html
+
+#### Apache Directory Studio
+`Apache Directory Studio` で `LDAP Server` を作成し start すると `Apache Directory Studio` に内臓された `LDAP Server` が開始される。  
+内容実体はファイルとして `${HOME}/.ApacheDirectoryStudio/` 以下に配置される。  
+
+* Apache Directory Studio : https://directory.apache.org/studio/  
+`LDAP`を扱うためのGUIを提供する。  
+`LDAP Server`も内臓しているが常駐させるには向かない。
+
+`dcm4chee-arc-light`ではセットアップ時とアップデート時に`.ldif`ファイルを`LDAP Server`へ適用するために使う。  
+
+
+#### ApacheDS Windows版
+https://directory.apache.org/apacheds/  
+`LDAP Server`の単体  
+Windows版ではサービスモードで実行される。  
+
+インストール時に質問される`Server Home Directory`は実行のためのファイルの配置場所。
+
+`Server Instances Home Directory`は書いてある通りインスタンスデータ(内容実体データ)を配置する場所。  
+`LDAP Server`の中身を配置する場所。  
+設定値をファイルレベルでバックアップしたい場合はここを含める。
+
+
+
+### ビルドエラー dcm4chee-arc-light 5.25.1
+`mvn install -D db=mysql`
+```
+[INFO] -------------< org.dcm4che.dcm4chee-arc:dcm4chee-arc-ui2 >--------------
+[INFO] Building dcm4chee-arc-ui2 5.25.1                               [114/118]
+[INFO] --------------------------------[ war ]---------------------------------
+[WARNING] The POM for org.dcm4che.dcm4chee-arc:dcm4chee-arc-lang:war:5.25.1 is missing, no dependency information available
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for dcm4chee-arc-parent 5.25.1:
+ -省略-
+[INFO] dcm4chee-arc-war ................................... SUCCESS [  0.113 s]
+[INFO] dcm4chee-arc-ui2 ................................... FAILURE [  0.020 s]
+[INFO] dcm4chee-arc-xsl-cda ............................... SKIPPED
+[INFO] dcm4chee-arc-ear ................................... SKIPPED
+[INFO] dcm4chee-arc-assembly .............................. SKIPPED
+[INFO] dcm4chee-arr-query ................................. SKIPPED
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  19.328 s
+[INFO] Finished at: 2022-01-15T14:36:15+09:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal on project dcm4chee-arc-ui2: Could not resolve dependencies for project org.dcm4che.dcm4chee-arc:dcm4chee-arc-ui2:war:5.25.1: Failure to find org.dcm4che.dcm4chee-arc:dcm4chee-arc-lang:war:5.25.1 in https://www.dcm4che.org/maven2 was cached in the local repository, resolution will not be reattempted until the update interval of www.dcm4che.org has elapsed or updates are forced -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException
+[ERROR] 
+[ERROR] After correcting the problems, you can resume the build with the command
+[ERROR]   mvn <args> -rf :dcm4chee-arc-ui2
+```
+対象: dcm4chee-arc-light (date:Thu Jan 13 22:08:46 2022 +0100, commit:0528496c27ec8ec29e503712cc536305aa52e40b, version:5.25.1, )  
+https://www.dcm4che.org/maven2/org/dcm4che/dcm4chee-arc/dcm4chee-arc-lang/ に 5.25.1 が存在しないため。
+
+`dcm4chee-arc-light/dcm4chee-arc-ui2/pom.xml`
+```
+  <dependencies>
+    <dependency>
+      <groupId>org.dcm4che.dcm4chee-arc</groupId>
+      <artifactId>dcm4chee-arc-lang</artifactId>
+      <version>${project.version}</version>
+      <type>war</type>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+```
+のversionを
+```
+      <version>5.24.1</version>
+```
+5.24.1に書き変える。(もっと正当な方法がありそう)
+
+### (?) mysql
+```
+# rootログイン
+
+create database dcm4chedb;  
+
+# エラーする
+grant all on dcm4chedb.* to `dcm4chee` identified by 'dcm4cheepass';  
+
+# エラーしない
+grant all on dcm4chedb.* to `dcm4chee`;  
+```
+
+### (?)
+```
+/subsystem=undertow/server=default-server/http-listener=default:write-attribute(name=max-post-size,value=1000000000)
+/subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=max-post-size,value=1000000000) 
+```
+
+### https://github.com/dcm4che/dcm4chee-arc-light/wiki/Installation#requirements
+Requirements: Java SE 8 or later - tested with OpenJDK and Oracle JDK (2022-01-19)
+(Java 8 は JDK 1.8)
+
+#### https://github.com/dcm4che/dcm4che
+コアライブラリである `dcm4che-core-xx.xx.xx.jar` とユーティリティーコマンド(dcmdumpなど)を提供する。  
+DICOM規格に関する処理を行なっている。  
+文字化けの原因もここ。
+
+#### https://github.com/dcm4che/dcm4chee-arc-light
+dcm4cheコアライブラリを利用して医療画像管理(PACS)ソフト(DICOM server及びclient)として動く。
+
+#### https://github.com/dcm4che/dcm4chee-arc-cdi
+PACSソフトの古いやつ。気にしない。
+
+#### https://github.com/dcm4che/dcm4chee-xds
+IHE(Integrating the Healthcare Enterprise)が管理するXDS(Cross Enterprise Document Sharing)規格の何か。  
+知らない。
+
+
+## DICOM の ISO 2022
+
+### (ISO 2022≒ECMA-35) エスケープシーケンス の規格
+
+>https://www.ecma-international.org/wp-content/uploads/ECMA-35_6th_edition_december_1994.pdf  
+>14.3.2 Specifications
+
+94文字集合(94-Set)や96-Set, 94n-Set, 96n-SetをG0, G1, G2, G3に呼び出すためのエスケープシーケンスに関する規則  
+G0 を GL に呼び出したり(...)に関する規則  
+DICOMではこれらの一部しか使ってはいけない。
+
+### >DICOM 6.1.2.3 文字レパートリの符号化 の注釈
+>3. JIS X 0201 の 8 ビット符号表は， G0 符号要素として ISO-IR 14（ローマ字英数字文字）そして G1 符号要素とし ISO-IR 13 （片仮名表音文字）を含む。 
+
+### ISO 2022 文字コードの概要
+
+>http://web.archive.org/web/20190309025211/http://euc.jp/i18n/charcode.ja.html  
+>最終更新 1999.7.31  
+
+日本語でとても分かりやすくまとめてある。`ISO 2022` をやるならまずこれ
+
+>G0に96n文字集合は指示不可。しかしGLへはG1-G3を使えば(96n文字集合)呼び出し可。
+
+この文は`ISO 2022`についてのもの。DICOMではGLはG0, GRはG1と決まっている。  
+したがってDICOMのISO 2022サブセットではGLに96n文字集合は割り当てられない。
+
+>終端文字と文字集合の対応は登録制になっており、 ECMAという組織が登録簿を管理しています。
+
+登録簿の呼ばれ方は  
+・`ECMA Registry`(探しにくい名前)  
+・`ISO国際登録簿`(≒`ISO IR`≒`ISO International register`)(探しにくい名前)  
+正式名称: `INTERNATIONAL REGISTER OF CODED CHARACTER SETS TO BE USED WITH ESCAPE SEQUENCES`
+
+現在(2022年)では`情報規格調査会(ITSCJ)`が管理(ほぼ凍結)。  
+※`情報処理学会(IPSJ)`の下部組織である`情報規格調査会(ITSCJ)`
+
+DICOM規格書内で`ISO Registration Number`を示す場合は `ISO-IR N`(例:`"ISO-IR 13"`) という表記が使われる(ハイフンに注目)。  
+スペースで表記される`"ISO 2022 IR 13"`や、アンダースコアが出現する`"ISO_IR 13"`といった表記は`Defined Term`(DICOM規格の用語・キーワード)であって`ISO Registration Number`を即ち示しているわけではない。  
+これらの表記はDICOM規格(`PS3.3-Table C.12-3. Defined Terms for Single-Byte Character Sets with Code Extensions`)を参照すると(`"ISO 2022 IR 13"`が)`ISO-IR 13`と`ISO-IR 14`の2つを意味することが読める。
+
+>https://www.itscj-ipsj.jp/custom_contents/cms/linkfile/ISO-IR.pdf  
+>2.1 94-Character graphic character sets with one Intermediate byte
+
+具体的な文字集合名とエスケープシーケンスの中間バイトと終端バイトの対応表がある。  
+tag:94 set, 94n set, 96 set, 96n set
+
+>図形文字集合を中間バッファに割り当てることを「指示する(to designate)」といい、 中間バッファをGL領域に割り当てることを「呼び出す(to invoke)」といいます。
+
+DICOMでは invoke は禁止されている。(GLはG0固定、GRはG1固定)  
+(invokeじゃなくdesignateが禁止だったか？DICOM規格書文中にinvokeが出て来る)
+
+#### pydicom使って文字列エンコードするプログラム(仮)(やめた)
+```
+EncodeTextIntoDicomSpecificCharacterSet [charsets] [text]
+  if charsets or text starts with "base64:", the arg is a base64 encoded string of utf-8.
+  if starts with "raw:", the encoding of the arg is system dependent.
+  e.g. EncodeTextForDicomSpecificCharacterSet 'raw:\ISO 2022 IR 87\ISO 2022 IR 13' 'raw:ﾔﾏﾀﾞ^ﾀﾛｳ=山田^太郎=やまだ^たろう'
+  e.g. EncodeTextForDicomSpecificCharacterSet 'raw:\ISO 2022 IR 87\ISO 2022 IR 13' 'raw:あいｱｲai+uiｳｴうえ-ｵoお'
+```
+
+### CL, GL, CR, GR, (C0, C1...), (G0, G1...)
+ISO 2022でも規格される。それ以外でも使われている。  
+CL, GL, CR, GR は8bit数値(0-255)を範囲ごとに4つに分けて名前を付けたもの。  
+・L は left、R はright、C は control character(制御文字)、G は graphic character(表示文字)。  
+・左側とは 0x00 - 0x7F (8bit目が0である範囲)、右側とは 0x80 - 0xFF(8bit目が1である範囲)  
+・制御用（CL control left）: 0x00 - 0x1F  
+・図形用（GL graphic left）: 0x20 - 0x7F  
+・制御用（CR control right）: 0x80 - 0x9F  
+・図形用（GR graphic right）: 0xA0 - 0xFF  
+
+図形用範囲にSpaceを含んだり含まなかったり、Deleteを含んだり含まなかったりで(GLとGRの)定義が揺れる。  
+図形だとか制御だとか言っているのは、そういう意味を持った機能をその数値に割り当て使うという意味。  
+図形なら図形と文字を表示するために、制御なら特殊制御用に(バイナリ列に現れても0幅であるようなもの)。  
+
+CL,CR,GL,GR が数値範囲を示すのに対して、(...)
+
+ISO 2022では C0 は常にCLに対応しているため区別する必要がない。  
+C1 は CR に常に対応しているため区別する必要がない。
+
+DICOMにおけるISO 2022(サブセット)では  
+G0は常にGLに対応するため区別する必要がない。  
+G1は常にGRに対応するため区別する必要がない。
+
+### dcm4cheのエンコード/デコード実装
+github上にある一番古い実装。あまり変わってない。  
+https://github.com/dcm4che/dcm4che/blob/b0b99302c1858948bd368e877b9a08e845b3d8bf/dcm4che-core/src/main/java/org/dcm4che3/data/SpecificCharacterSet.java  
+https://github.com/dcm4che/dcm4che/blob/b0b99302c1858948bd368e877b9a08e845b3d8bf/dcm4che-core/src/test/java/org/dcm4che3/data/SpecificCharacterSetTest.java  
+テストセットはたぶん規格書から取って来たもの。  
+The reason why "yamada-tarou" test worked well was because switched the character set at the same time as the delimiter. 
+
+### dcm4che/**/SpecificCharacterSetTest.java
+Japanese, Korean, Chinese 以外ではエスケープシーケンスが出現しない。  
+
+### DICOMに関する「半角カナは使わない」
+およそ2010年までの文書に多い。  
+読むための処理を書く側には関係がない。  
+DICOMのISO 2022サブセット規格に大きな不備があるわけではない(実運用上の不備はあるが)。
+
+### DICOM規格書日本語訳
+文字コードに関する部分  
+https://www.jira-net.or.jp/dicom/file/standard/DICOM_PS3.5j_2009_ref.pdf  
+英語  
+https://dicom.nema.org/medical/dicom/current/output/html/part05.html  
+
+### Code Extension Techniques: 符号拡張技術
+ISO 2022のバッファへ文字集合を指示する(to designate)ことや、バッファをGLやGRに呼び出す(to invoke)こと。  
+そのエスケープシーケンスのこと。  
+DICOMでは
+
+* 属性特定文字集合 (0008,0005) が複数値である時だけエスケープシーケンスを使ってよい
+
+* 属性特定文字集合に書いた/書いてある文字集合しか使ってはいけない
+
+* `DICOM PS3.3-C.12.1.1.2 Specific Character Set` に書いてあるエスケープシーケンスしか使ってはいけない
+
+DICOMで使ってもいいエスケープシーケンスの表は以下
+
+>https://dicom.nema.org/medical/dicom/current/output/html/part03.html  
+>Table C.12-3. Defined Terms for Single-Byte Character Sets with Code Extensions
+
+### 属性特定文字集合 (0008,0005)が単一値である場合のG0とG1の状態
+(※属性特定文字集合が単一値である場合、文字集合の切り替えは行えない。)  
+(※DICOMではGLはG0固定、GRはG1固定)  
+属性特定文字集合が`ISO IR_13`の単独値である場合、(字面に反して)`ISO IR 13`(カナ)と`ISO IR 14`(Romaji(ほぼASCII))の2つの文字種が利用できる。  
+そして`IR 14`(Romaji)は必ず`G0`に、`IR 13`(カナ)は必ず`G1`に割り当てられる。  
+`G0`がカナで`G1`がRomajiになったりはしない(ISO 2022ではこの状態は合法)。
+
+`単独値`と`利用できる文字種`と`G0/G1への割り当て`は以下に規格される。  
+
+>https://dicom.nema.org/medical/dicom/current/output/html/part03.html  
+>DICOM PS3.3-Table C.12-2. Defined Terms for Single-Byte Character Sets Without Code Extensions
+
+### Note: To use the single-byte code table of JIS X0201...
+`DICOM PS3.3-C.12.1.1.2 Specific Character Set` の `Note`  
+なぜわざわざ`JIS X0201`の`IR 13`と`IR 14`に言及しているのか  
+何を読みとるべきか分からない  
+ただ単に`G0`が`ISO-IR 6`じゃないの気をつけてってことだろうか  
+
+### 属性特定文字集合 (0008,0005)が複数値である場合のG0とG1の状態
+ここでも`G0`がカナで`G1`がRomajiになったりはしない。  
+初期状態に関しては`値 1`と`文字レパートリ`の話を参照。
+
+### 「文字レパートリ(Character Repertoire)」と「文字集合(Character Set)」
+この使い分けはDICOM規格での話。  
+`Character Repertoire`は1つあるいは2つの`Character Set`を持つ。  
+規格書内で `Repertoire` と `Set` の使い分けは徹底されていないが以下の2つは言える。
+
+* `Character Repertoire` を示す時は `Character Set` と `Character Repertoire` が使われる。
+
+* `Character Set` を示す時は `Character Set` が使われて `Character Repertoire` は使われ**ない**。
+
+`Specific Character Set (0008,0005)`に指定できるものは`Character Repertoire`。  
+`ISO 2022 IR 6`, `ISO 2022 IR 100`, `ISO 2022 IR 13`, `ISO 2022 IR 87`といったものは`Character Repertoire`。だが`Character Set`と表現されることの方が多い。
+
+`ISO 2022 IR 6`指定によって利用可能になる`ISO 646`(ASCII)は`Character Set`。  
+`ISO 2022 IR 13`指定によって利用可能になる`ISO-IR 13`(Katakana)と`ISO-IR 14`(Romaji)は`Character Set`。  
+
+さらに紛らわしいことに規格書には(`Repertoire`ではない)`Character Set`として`JIS X 0201`や`ISO/IEC 8859-1`や`TIS 620-2533`などが現れる。  
+`JIS X 0201`は`ISO-IR 14`(Romaji)をGL(G0)に、`ISO-IR 14`(Katakana)をGR(G1)に持つ規格である。  
+DICOM規格書では文脈や表の位置に応じて「`JIS X 0201`」を「`JIS X 0201`の`G0側`」のように読み替える必要がある。  
+決してG0側でRomajiとKatakana(半角カナ)両方が使えるようになったりはしない  
+(決してG1側でRomajiとKatakana(半角カナ)両方が使えるようになったりはしない)  
+DICOMはエスケープシーケンスを制限することでそれを禁止してる。
+
+> https://dicom.nema.org/medical/dicom/current/output/html/part05.html  
+>6.1.2 Graphic Characters  
+> A Character Repertoire, or character set, is a collection of Graphic Characters specified independently of their encoding.  
+
+### DICOMデフォルト文字レパートリ
+ISO 646:1990(ISO-IR 6: ASCII) のこと  
+G0側にこれが割り当てられる。
+G1側は初期状態では空っぽ。
+
+### 属性特定文字集合 (0008,0005) の値 1: Value 1 of Attribute Specific Character Set (0008,0005)
+「最初の」ということ  
+これは序数。  
+値 0という値は存在しない、そんな場所も存在しない。  
+
+* `"ISO 2022 IR 13\ISO 2022 IR 87"`ならば`"ISO 2022 IR 13"`のこと  
+
+* `"\ISO 2022 IR 87"`ならば`""`で、この空文字は`"ISO 2022 IR 6"`の省略表現  
+
+### 用語: >属性特定文字集合 (0008,0005) の値 1 で明記される文字集合の他の文字集合...が呼び出されている場合には〜
+※上記表現は日本語翻訳版( https://www.jira-net.or.jp/dicom/file/standard/DICOM_PS3.5j_2009_ref.pdf )のもの  
+原文は `a character set other than the one specified in value 1 of the Attribute Specific Character Set (0008,0005), ..., has been invoked`  
+「値 1以外が呼び出されている時は」と読み替えていい。  
+(呼び出す(invoke)はISO 2022用語で、おおよそ「Aを呼び出す」は「キャラクターセットであるAを利用すること」の意味※厳密には違う)  
+
+この文の`Character Set`は`Character Repertoire`のこと。  
+だから実例は3パターンに分かれる。以下`Repertoire`と`Set`を区別して書く。  
+`値 1`の`Character Repertoire`が
+
+1. `G0 Character Set`だけを持つ場合は、「`G0`に`値 1`以外の`G0 Character Set`が入っている場合には〜」
+
+2. `G0 Character Set` と `G1 Character Set`を持つ場合、「`G0`, `G1`どちらかに`値 1`以外の`Character Set`が入ってる場合には〜入っている側に対して〜」
+
+3. `G1 Character Set`だけを持つ場合、「`G1`に`値 1`以外の`G1 Character Set`が入っている場合には〜」
+
+
+### DICOMはISO 2022のサブセットを使う
+ISO 2022規格のうち(エンコードに関する)いくつかのエスケープシーケンスを禁止しているという意味。  
+DICOM規格でエンコードした文字列はISO 2022デコーダーでデコードできるといいなということ。  
+しかし以下の理由でデコードが出来るとは限らない。  
+ISO 2022自体がバイナリ列に表現されない了解によって初期状態を決めてよいと規格している。  
+暗黙のエスケープシーケンスがバイナリ列開始の前に存在しているみたいなこと。  
+この暗黙の了解はDICOMでは`属性特定文字集合 (0008, 0005)`によって決まる  
+また区切り文字(`CR`, `LF`, `FF`, `^`, `\\` , `=`)で文字集合の呼び出し状態が変わる。  
+(※何が区切り文字かはDICOM属性ごとに変わる)
+
+### 用語: 実装水準(Implementation level)
+`DICOM 6.1.2.5.4 Levels of Implementation and Initial Designation` に出てくる  
+`Implementation level: [ISO/IEC 2022] Level 1 - Elementary 7-bit code (code-level identifier 1)`  
+`Implementation level: [ISO/IEC 2022] Level 1 - Elementary 8-bit code (code-level identifier 11)`  
+`Implementation level: [ISO/IEC 2022] Level 4 - Redesignation of Graphic Character Sets within a Code (code-level identifier 14)`  
+`実装水準： ISO/IEC 2022 水準 1－基本 7 ビット符号（符号水準識別子 1） `  
+とか書いてあるものが何か。
+
+まず`Level 1 Elementary 7-bit code`や`Level 4 Redesignation of Graphic Character Sets within a Code`が示すものはこれ
+
+> https://www.ecma-international.org/wp-content/uploads/ECMA-35_6th_edition_december_1994.pdf  
+>ISO 2022/ECMA-35: 10 Versions and levels of implementation
+
+ECMA-35規格書では bit数→実装概要 の順で書いてある。  
+(10.3.1 8-bit codes): Level 1 - Elementary 8-bit Code  
+(10.3.1 8-bit codes): Level 4 - Redesignation of Graphic Character Sets Within a Code  
+(10.3.3 7-bit codes): Level 1 - Elementary 7-bit Code  
+
+次に `code-level identifier N`, `符号水準識別子` なるもの  
+Nが示すのは`ECMA-35: 15.2.2 Specification: Table 7 Code Structure Facilities for the Announcer Function (ACS)`の `Facility Number`のこと。  
+`code-level`と`implementation level`はほぼ同義語
+
+>Facility Number 1: 04/01 The G0 code element shall be used. Designation of G0 also invokes it into the GL area. No locking-shift functions shall be used.
+>In 8-bit code: the GR area is not used. (*)
+
+>Facility Number 11: 04/11 An 8-bit code is used.
+
+>Facility Number 14: 04/14 Level 3 of ECMA-43 shall be used. 
+
+`>ECMA-43の水準3を使います`またもや参照。  
+`ECMA-43`は`ISO 4873: 8‐Bit Coded Character Set Structure and Rules`と同義  
+`ISO 4873`は`ISO 2022` で使う文字集合を作るため使うための規格  
+`ISO 4873`にも`Implementation level`なる用語が出るがそれは`ISO 2022`と同じ意味のものだが(...)  
+`ISO 2022 code-level identifier 12`は`ISO 4873 level 1`  
+`ISO 2022 code-level identifier 13`は`ISO 4873 level 2`  
+`ISO 2022 code-level identifier 14`は`ISO 4873 level 3`  
+にそれぞれ紐づく。  
+(`ISO 2022`が`ISO 4873`を使う時は、`ISO 2022`の`code-level`で`ISO 4873`のlevelが決まる(たぶん)。  
+`ISO 2022`以外が`ISO 4873`を使う時は知らない)
+
+#### 書くのに使うemacs lisp
+```
+(defun rc (x &optional s)
+  "数値をDICOMやISOで使われる16進数1ケタずつを10進数で表現する形式に変換する。0x1B は \"01/11\""
+  (setf s (or s ""))
+  (let ((a (mod (/ x 16) 16))
+	(b (mod x 16))
+	(c (/ x 16 16)))
+    (setf s (if s (concat " " s) ""))
+    (setf s (format "%02d/%02d%s"
+		    a b s))
+    (if (= c 0)
+	s
+      (rc c s))))
+```
+
+### (???) print debug
+##### 1
+`Attributes attrs = result.getStoredAttributes();`
+```
+LOG.info("AAAAA createInstance(804)805 {}", result.getStoredAttributes().getString(Tag.InstitutionName));
+```
+##### 2
+```
+    public static void printerr(String message)
+    {
+        StackTraceElement[] st = (new Throwable()).getStackTrace();
+        String methodName = st[1].getMethodName();
+        String className = st[1].getClassName();
+        int line = st[1].getLineNumber();
+		
+        LOG.info(className + "." + methodName + ":" + line + ": " + message);
+    }
+```
+
+
+#### (?) dcm4chee-arc-light uiから
+`Specific Character Set	(0008,0005)	CS	,ISO 2022 IR 87,ISO 2022 IR 13`
+
+#### (???) dcm4chee-arc-light
+`coerceAttributes`でseriesのattributesにcoerceされる。
+```
+try { printerr("series-" + ctx.getStoreSession().getCachedSeries(ctx.getStudyInstanceUID(), ctx.getSeriesInstanceUID()).getAttributes().getString(Tag.InstitutionName)); } catch(Throwable e) {}
+```
+
+#### (???)
+```
+>>> b'(B'.hex() => '2842'
+>>> b'$B'.hex() => '2442'
+>>> hex( 9282) => '0x2442'
+>>> hex(10569) => '0x2949'
+```
+
+#### (???)
+第1表現  
+  ESC: エスケープシーケンス開始  
+第2表現(中間)  
+
+|.|.|.|
+|:-:|:-:|:-:|
+|`"("` | 0x28  | G0 に「94文字集合」リストから ○○ 選びを指示する|
+|`"$"`| 0x24  | G0 に「94n文字集合」リストから ○○ 選びを指示する|
+|`"$("`| 0x2428| G0 に「94n文字集合」リストから ○○ 選びを指示する|
+|なし| .     | G0 に「96文字集合」リストから ○○ 選びを指示する|
+|なし| .     | G0 に「96n文字集合」リストから ○○ 選びを指示する|
+|`"$)"`| 0x2429| G1 に「94n文字集合」リストから ○○ 選びを指示する|
+|`"$-"`| 0x242d| G1 に「96n文字集合」リストから ○○ 選びを指示する|
+  
+第3表現(終端)  
+*  "@": 4/0:  
+*  "A": 4/1:  
+*  "B": 4/2:  
+*  "J": 4/10: 0x4A  
+
+|DICOMでの表現|.|慣用ASCII|10進数|16進数|概要摘要|
+|--------------|---------|---------|----:|-----:|-------------------------------|
+|ISO 2022 IR 87|JIS_X_208|`ESC ( B`|10306|0x2842|漢字|
+|ISO 2022 IR 13|JIS_X_201|`ESC $ B`| 9282|0x2442|92番の文字にバックスラッシュ(`＼`の半角)の替わりに円記号('¥')が、<br>126番にチルダ ('~') の替わりにオーバーライン ('‾')|
+
+(上記出典はどこだったか？`ISO 2022 IR 13`は`JIS X 0201`を示し`ISO-IR 13`と`ISO-IR 14`の2つを利用することを宣言するものだが…？)
+
+DICOMではC1は使わない。
+
+### java String::getBytes エンコーダー
+javaのエンコーダーは `dcm4che/**/SpecificCharacterSet.java` の requirement を満たしているように見える
+
+"ISO-8859-1", "ISO-8859-2", "ISO-8859-3", "ISO-8859-4", "ISO-8859-5", "ISO-8859-6", "ISO-8859-7", "ISO-8859-8", "ISO-8859-9"  
+G1文字はすべて0x80以上
+
+```
+if (allG1("　、。·‥…¨〃­―∥＼∼‘’가각간갇갈갉갊감갑값갓갔강갖갗嬉希憙憘戱晞曦熙熹熺犧禧稀羲詰".getBytes("EUC-KR"))) {
+    System.out.print("OK EUC-KR/ISO 2022 IR 149/KS_X_1001");
+}
+```
+検証範囲では0x80以上
+
+```
+if (allG1("・啊阿埃挨哎唉哀皑癌蔼矮艾碍爱隘黟黢黩黧黥黪黯鼢鼬鼯鼹鼷鼽鼾齄".getBytes("GB2312"))) {
+     System.out.print("OK(1) GB2312\n");
+}
+```
+検証範囲では0x80以上
+
+### (???)
+
+CS-7: `"\ISO 2022 IR 87\ISO 2022 IR 13"` (値1:`空(ISO 2022 IR 6)` 値2:`ISO 2022 IR 87 かな漢字` 値3:`ISO 2022 IR 13 ローマ字と半角カナ`)
+```
+CS-7:
+(0008, 0005) Specific Character Set              CS: ['', 'ISO 2022 IR 87', 'ISO 2022 IR 13']
+(0020, 4000) Image Comments                      LT: 'aｱあaあｱｱaあｱあaあaｱあｱa# aｱあ aあｱ ｱaあ ｱあa あaｱ あｱa #'
+61 1b 29 49 b1 1b 24 42 24 22 1b 28 42 61 1b 24 42 24 22 1b 29 49 b1 b1 1b 28 42 61 1b 24 42 24 22 1b 29 49 b1 1b 24 42 24 22 1b 28 42 61 1b 24 42 24 22 1b 28 42 61 1b 29 49 b1 1b 24 42 24 22 1b 29 49 b1 1b 28 42 61 23 20 61 1b 29 49 b1 1b 24 42 24 22 1b 28 42 20 61 1b 24 42 24 22 1b 29 49 b1 1b 28 42 20 1b 29 49 b1 1b 28 42 61 1b 24 42 24 22 1b 28 42 20 1b 29 49 b1 1b 24 42 24 22 1b 28 42 61 20 1b 24 42 24 22 1b 28 42 61 1b 29 49 b1 1b 28 42 20 1b 24 42 24 22 1b 29 49 b1 1b 28 42 61 20 23 20
+
+popnet:
+(0008, 0005) Specific Character Set              CS: ['', 'ISO 2022 IR 87', 'ISO 2022 IR 13']
+(0008, 1030) Study Description                   LO: 'aｱあaあｱｱaあｱあaあaｱあｱa# aｱあ aあｱ ｱaあ ｱあa あaｱ あｱa #'
+61 1b 29 49 b1 1b 28 42 1b 24 42 24 22 1b 28 42 61 1b 24 42 24 22 1b 28 42 1b 29 49 b1 b1 1b 28 42 61 1b 24 42 24 22 1b 28 42 1b 29 49 b1 1b 28 42 1b 24 42 24 22 1b 28 42 61 1b 24 42 24 22 1b 28 42 61 1b 29 49 b1 1b 28 42 1b 24 42 24 22 1b 28 42 1b 29 49 b1 1b 28 42 61 23 20 61 1b 29 49 b1 1b 28 42 1b 24 42 24 22 1b 28 42 20 61 1b 24 42 24 22 1b 28 42 1b 29 49 b1 1b 28 42 20 1b 29 49 b1 1b 28 42 61 1b 24 42 24 22 1b 28 42 20 1b 29 49 b1 1b 28 42 1b 24 42 24 22 1b 28 42 61 20 1b 24 42 24 22 1b 28 42 61 1b 29 49 b1 1b 28 42 20 1b 24 42 24 22 1b 28 42 1b 29 49 b1 1b 28 42 61 20 23 20
+```
+
+#### dcm4che/**/SpecificCharacterSet.java 変更メモ
+
+DICOMではISO-IRごとにG0に指示できるかG1に指示できるかの制約がある。  
+コードの属性に関する記述を抜粋
+```
+ISO_646(true, 0x2842, 0, 1),
+ISO_8859_1(true, 0x2842, 0x2d41, 1),
+ISO_8859_2(true, 0x2842, 0x2d42, 1),
+ISO_8859_3(true, 0x2842, 0x2d43, 1),
+ISO_8859_4(true, 0x2842, 0x2d44, 1),
+ISO_8859_5(true, 0x2842, 0x2d4c, 1),
+ISO_8859_6(true, 0x2842, 0x2d47, 1),
+ISO_8859_7(true, 0x2842, 0x2d46, 1),
+ISO_8859_8(true, 0x2842, 0x2d48, 1),
+ISO_8859_9(true, 0x2842, 0x2d4d, 1),
+JIS_X_201(true, 0x284a, 0x2949, 1),
+TIS_620(true, 0x2842, 0x2d54, 1),
+JIS_X_208(false, 0x2442, 0, 1),
+JIS_X_212(false, 0x242844, 0, 2),
+KS_X_1001(false, 0x2842, 0x242943, -1),
+GB2312(false, 0x2842, 0x242941, -1),
+UTF_8(true, 0, 0, -1),
+GB18030(false, 0, 0, -1);
+
+Codec(boolean containsASCII, int escSeq0, int escSeq1, int bytesPerChar)
+```
+escSeq0 とは G0 に割り当てる時のエスケープシーケンス。  
+escSeq1 とは G1 に割り当てる時のエスケープシーケンス。  
+`KS_X_1001`と`GB2312`に同じ誤りあり。どちらもG1に割り当てられる目的でしかDICOMでは使われない。  
+*変更*
+```
+KS_X_1001(false, 0, 0x242943, -1),
+GB2312(false, 0, 0x242941, -1),
+```
+
+strlen
+
+### CHINESE_LONG_TEXT_GB2312_BYTES
+`>Example K.3-1. Example of Long Text Value Representation in the Chinese Language with GB2312 G1`
+```
+Specific Character Set: (0008,0005) \ISO 2022 IR 58
+Character String (with CR LF after each line):
+1) 第一行文字。
+2) 第二行文字。
+3) 第三行文字。 
+```
+閉じ括弧とスペースが含まれる。
+
+```
+ Character encoded representation (GB2312):
+    0x31 0x2e 0x1B 0x24 0x29 0x41 0xB5 0xDA 0xD2 0xBB 0xD0 0xD0 0xCE 0xC4 0xD7 0xD6 0xA1 0xA3 0x0D 0x0A
+    0x32 0x2e 0x1B 0x24 0x29 0x41 0xB5 0xDA 0xB6 0xFE 0xD0 0xD0 0xCE 0xC4 0xD7 0xD6 0xA1 0xA3 0x0D 0x0A
+    0x33 0x2e 0x1B 0x24 0x29 0x41 0xB5 0xDA 0xC8 0xFD 0xD0 0xD0 0xCE 0xC4 0xD7 0xD6 0xA1 0xA3 0x0D 0x0A
+```
+")" は 0x29 だが上記には 0x2e 、それは ASCII の dot "."  
+規格に誤りあり。
+Encoded String側を修正してTestへ。
+
+### KOREAN_LONG_TEXT
+`>Example I.3-1. Example of Long Text Value Representation in the Korean Language Without Explicit Escape Sequences Between Character Sets`
+
+古い
+[1b 24 29 43] 54 68 65 20 31 73 74 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 b1 e6 b5 bf 2e [0d 0a] [1b 24 29 43] 54 68 65 20 32 6e 64 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 b1 e6 b5 bf 2c 20 74 6f 6f 2e 0d 0a 54 68 65 20 33 72 64 20 6c 69 6e 65 2e
+
+新しい
+54 68 65 20 31 73 74 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 [1b 24 29 43] b1 e6 b5 bf 2e [0d 0a] 54 68 65 20 32 6e 64 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 [1b 24 29 43] b1 e6 b5 bf 2c 20 74 6f 6f 2e 0d 0a 54 68 65 20 33 72 64 20 6c 69 6e 65 2e
+
+
+```
+Fix #976 : ISO 2022 text encoding issue
+
+ * Remove escape sequence(G0-DESIGNATE ASCII) of Codec.KS_X_1001 and
+     Codec.GB2312
+ * Update the Chinese test pattern with DICOM PS3.5 2021e
+ * Divide the Korean test pattern two parts, encode and decode
+
+The old source code misunderstood that the codec GR(G1) characters could
+be used even when used G0-EscSeq of the codec, and vice versa. This
+caused problems when complex switches were needed, like Japanese.
+```
+
