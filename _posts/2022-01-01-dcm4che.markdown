@@ -2,7 +2,8 @@
 layout: post
 title:  "dcm4cheの文字化け"
 permalink: /2022-01--dcm4che.html
-date: 2022-02-02
+date: 2022-02-06
+toc: true
 ---
 
 dcm4che / DICOM / ISO 2022 / 日本語処理
@@ -31,7 +32,7 @@ dcm4che / DICOM / ISO 2022 / 日本語処理
 これらの製品は、日本語が入力出来ているように見えて`Specific Character Set (0008,0005)`に`"ISO IR_100"`(Latin alphabet No.1)しか指定されていないDICOMファイルを作り出していることがあります。(DICOM規格違反)  
 そういったデータは今回の文字化け不具合修正版でも文字化けします。
 
-期待通りの文字列として扱うには、`dcm4chee-arc-light`に`DICOMファイル`を入れる前に加工する必要あり。  
+NOTE: 期待通りの文字列として扱うには、`dcm4chee-arc-light`に`DICOMファイル`を入れる前に加工する必要あり。  
 
 * (多くの日本製PACSのように)`Specific Character Set (0008,0005)`を無視して文字列バイナリを解釈してから
 
@@ -126,7 +127,7 @@ http://localhost:8080/dcm4chee-arc/ui2/
 ### data-sourceの記述を間違えた場合は
 `jboss-cli`上で`data-source remove --name=PacsDS`で消せる  
 
-ちなみに `/subsystem=datasources:read-resource` で登録済の`data-source`一覧が得られる。
+NOTE: `/subsystem=datasources:read-resource` で登録済の`data-source`一覧が得られる。
 
 
 ### (?)
@@ -182,7 +183,7 @@ http://localhost:8080/dcm4chee-arc/ui2/
 次に`wildfly-*/modules/com/mysql/main/module.xml`の内容を確認して`<resource-root path="mysql-connector-java-5.1.36-bin.jar"/>`とか書いてある行が実在しているファイルを指しているか確認する。  
 存在しているjarファイルを指すように書き換える。  
 
-#### エラー例
+#### エラー例 (jboss.ejb.default-resource-adapter-name-service not found)
 ```
 Caused by: org.jboss.msc.service.ServiceNotFoundException: Service service jboss.ejb.default-resource-adapter-name-service not found
 ```
@@ -204,7 +205,7 @@ Exception: localhost:389 [Root exception is java.net.ConnectException: 接続を
     Caused by: javax.naming.CommunicationException: localhost:389 [Root exception is java.net.ConnectException: 接続を拒否されました (Connection refused)]
     Caused by: java.net.ConnectException: 接続を拒否されました (Connection refused)"}}}}
 ```
-#### 上記理由
+##### 上記理由
 LDAP serverへ繋がらない。  
 上記例の場合は`ポート389`が沈黙している。  
 どのポートを見に行くかはファイル`wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties`の
@@ -212,6 +213,13 @@ LDAP serverへ繋がらない。
  java.naming.provider.url=ldap://localhost:389/dc=dcm4che,dc=org
 ```
 の数字部分で決まる。変更したら`wildfly`の再起動。(よく使われるのは 10389 と 389)
+
+ポートの状態を見る
+```
+win: netstat -a | find "10389"
+unix系: netstat -a | grep 10389
+      : lsof -i | grep ":10389 (LISTEN)"
+```
 
 #### エラー例 `(LDAP: error code 49 - INVALID_CREDENTIALS)`
 ```
@@ -227,7 +235,7 @@ LDAP serverへ繋がらない。
   java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
   java.naming.security.credentials=secret
 ```
-#### 上記理由
+##### 上記理由
 `wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties`にあるLDAP serverへ繋ぐための認証情報がおかしい(dcm4chee/wildflyはLDAPサーバーへは到達できている)
 ```
   java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
@@ -252,7 +260,7 @@ LDAPサーバーの設定を見て書き直す。
 ```
 こういったメッセージ(`No enum constant org.dcm4chee.arc.conf.xxx`) は LDAP Server のセットアップが失敗している状態(dcm4chee/wildflyはLDAPサーバーへ到達できていて、LDAP利用のための認証も出来ている)  
 よくわからなければ LDAP Server を削除して1からやりなおすのが楽。  
-(※`CANCELLED`に限れば、これは誤字でどこからかのバージョンで修正され`CANCELED`になった。)
+(※`CANCELLED`に限れば、これは誤字でどこからかのバージョンで修正され`CANCELED`になった)
 
 
 ### wildfly設定反映
@@ -264,14 +272,14 @@ LDAPサーバーの設定を見て書き直す。
 を再起動する必要がある。
 
 
-### 相性問題
+### 相性問題 × wildfly-26
 ```
 20:55:58,478 ERROR [org.jboss.resteasy.resteasy_jaxrs.i18n] (default task-14) RESTEASY002020: Unhandled asynchronous exception, sending back 500: org.jboss.resteasy.spi.UnhandledException: java.lang.IncompatibleClassChangeError: Expected static method org.jboss.resteasy.spi.ResteasyProviderFactory.getContextData(Ljava/lang/Class;)Ljava/lang/Object;
 ```
 `dcm4chee-arc-5.24.2-mysql`, `openjdk-12`, `wildfly-26.0.0.Final`  
 wildfly-26はダメ(新しすぎ)
 
-### 相性問題
+### 相性問題 × openjdk-17.0.1 
 ```
 {"WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:" => {"Operation step-2" => {"WFLYCTL0080: Failed services" => {"jboss.deployment.subunit.\"dcm4chee-arc-ear-5.24.2-mysql.ear\".\"dcm4chee-arc-pdq-scheduler-5.24.2.jar\".INSTALL" => "WFLYSRV0153: Failed to process phase INSTALL of subdeployment \"dcm4chee-arc-pdq-scheduler-5.24.2.jar\" of deployment \"dcm4chee-arc-ear-5.24.2-mysql.ear\"
 ```
@@ -281,13 +289,13 @@ wildfly-26はダメ(新しすぎ)
 
 openjdk-17.0.1はダメ(新しすぎ)
 
-### 相性問題
+### 相性問題 × Apache DS 2.0.0-M25
 
 |.|.|
 |-|-|
 |Apache DS 2.0.0-M25|`dicom.ldif`を`import`した後、再起動不可|
-|Apache DS 2.0.0-M24|可|
-|Apache DS 2.0.0-M9|可|
+|Apache DS 2.0.0-M24|ok|
+|Apache DS 2.0.0-M9|ok|
 
 https://directory.apache.org/apacheds/download-old-versions.html
 
@@ -448,6 +456,9 @@ DICOM規格書内で`ISO Registration Number`を示す場合は `ISO-IR N`(例:`
 スペースで表記される`"ISO 2022 IR 13"`や、アンダースコアが出現する`"ISO_IR 13"`といった表記は`Defined Term`(DICOM規格の用語・キーワード)であって`ISO Registration Number`を即ち示しているわけではない。  
 これらの表記はDICOM規格(`PS3.3-Table C.12-3. Defined Terms for Single-Byte Character Sets with Code Extensions`)を参照すると(`"ISO 2022 IR 13"`が)`ISO-IR 13`と`ISO-IR 14`の2つを意味することが読める。
 
+>https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html  
+>Table C.12-3. Defined Terms for Single-Byte Character Sets with Code Extensions
+
 >https://www.itscj-ipsj.jp/custom_contents/cms/linkfile/ISO-IR.pdf  
 >2.1 94-Character graphic character sets with one Intermediate byte
 
@@ -510,7 +521,8 @@ DICOMのISO 2022サブセット規格に大きな不備があるわけではな�
 文字コードに関する部分  
 https://www.jira-net.or.jp/dicom/file/standard/DICOM_PS3.5j_2009_ref.pdf  
 英語  
-https://dicom.nema.org/medical/dicom/current/output/html/part05.html  
+https://dicom.nema.org/medical/dicom/2021e/output/html/part05.html  
+https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html  
 
 ### Code Extension Techniques: 符号拡張技術
 ISO 2022のバッファへ文字集合を指示する(to designate)ことや、バッファをGLやGRに呼び出す(to invoke)こと。  
@@ -525,11 +537,11 @@ DICOMでは
 
 DICOMで使ってもいいエスケープシーケンスの表は以下
 
->https://dicom.nema.org/medical/dicom/current/output/html/part03.html  
+>https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html  
 >Table C.12-3. Defined Terms for Single-Byte Character Sets with Code Extensions
 
 ### 属性特定文字集合 (0008,0005)が単一値である場合のG0とG1の状態
-(※属性特定文字集合が単一値である場合、文字集合の切り替えは行えない。)  
+(※属性特定文字集合が単一値である場合、文字集合の切り替えは行えない)  
 (※DICOMではGLはG0固定、GRはG1固定)  
 属性特定文字集合が`ISO IR_13`の単独値である場合、(字面に反して)`ISO IR 13`(カナ)と`ISO IR 14`(Romaji(ほぼASCII))の2つの文字種が利用できる。  
 そして`IR 14`(Romaji)は必ず`G0`に、`IR 13`(カナ)は必ず`G1`に割り当てられる。  
@@ -537,7 +549,7 @@ DICOMで使ってもいいエスケープシーケンスの表は以下
 
 `単独値`と`利用できる文字種`と`G0/G1への割り当て`は以下に規格される。  
 
->https://dicom.nema.org/medical/dicom/current/output/html/part03.html  
+>https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html  
 >DICOM PS3.3-Table C.12-2. Defined Terms for Single-Byte Character Sets Without Code Extensions
 
 ### Note: To use the single-byte code table of JIS X0201...
@@ -572,7 +584,7 @@ DICOM規格書では文脈や表の位置に応じて「`JIS X 0201`」を「`JI
 (決してG1側でRomajiとKatakana(半角カナ)両方が使えるようになったりはしない)  
 DICOMはエスケープシーケンスを制限することでそれを禁止してる。
 
-> https://dicom.nema.org/medical/dicom/current/output/html/part05.html  
+> https://dicom.nema.org/medical/dicom/2021e/output/html/part05.html  
 >6.1.2 Graphic Characters  
 > A Character Repertoire, or character set, is a collection of Graphic Characters specified independently of their encoding.  
 
@@ -619,10 +631,14 @@ ISO 2022自体がバイナリ列に表現されない了解によって初期状
 
 ### 用語: 実装水準(Implementation level)
 `DICOM 6.1.2.5.4 Levels of Implementation and Initial Designation` に出てくる  
-`Implementation level: [ISO/IEC 2022] Level 1 - Elementary 7-bit code (code-level identifier 1)`  
-`Implementation level: [ISO/IEC 2022] Level 1 - Elementary 8-bit code (code-level identifier 11)`  
-`Implementation level: [ISO/IEC 2022] Level 4 - Redesignation of Graphic Character Sets within a Code (code-level identifier 14)`  
-`実装水準： ISO/IEC 2022 水準 1－基本 7 ビット符号（符号水準識別子 1） `  
+
+* `Implementation level: [ISO/IEC 2022] Level 1 - Elementary 7-bit code (code-level identifier 1)`  
+
+* `Implementation level: [ISO/IEC 2022] Level 1 - Elementary 8-bit code (code-level identifier 11)`  
+
+* `Implementation level: [ISO/IEC 2022] Level 4 - Redesignation of Graphic Character Sets within a Code (code-level identifier 14)`  
+
+* `実装水準： ISO/IEC 2022 水準 1－基本 7 ビット符号（符号水準識別子 1） `  
 とか書いてあるものが何か。
 
 まず`Level 1 Elementary 7-bit code`や`Level 4 Redesignation of Graphic Character Sets within a Code`が示すものはこれ
@@ -657,7 +673,7 @@ Nが示すのは`ECMA-35: 15.2.2 Specification: Table 7 Code Structure Facilitie
 (`ISO 2022`が`ISO 4873`を使う時は、`ISO 2022`の`code-level`で`ISO 4873`のlevelが決まる(たぶん)。  
 `ISO 2022`以外が`ISO 4873`を使う時は知らない)
 
-#### 書くのに使うemacs lisp
+### 書くのに使うemacs lisp
 ```
 (defun rc (x &optional s)
   "数値をDICOMやISOで使われる16進数1ケタずつを10進数で表現する形式に変換する。0x1B は \"01/11\""
