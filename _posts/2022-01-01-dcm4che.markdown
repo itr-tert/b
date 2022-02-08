@@ -2,7 +2,7 @@
 layout: post
 title:  "dcm4cheの文字化け"
 permalink: /2022-01--dcm4che.html
-date: 2022-02-06
+date: 2022-02-08
 toc: true
 ---
 
@@ -147,6 +147,36 @@ NOTE: `/subsystem=datasources:read-resource` で登録済の`data-source`一覧�
 ```
 上記理由: data-source の記述が間違っている。`jboss-cli`で`data-source remove --name=PacsDS`としてdata-sourceを一度消して再登録する。
 
+#### エラー例 (Table '' doesn't exist)
+```
+2022-02-07 01:02:49,855 WARN  [org.hibernate.engine.jdbc.spi.SqlExceptionHelper] (ServerService Thread Pool -- 39) SQL Error: 1146, SQLState: 42S02
+2022-02-07 01:02:49,856 ERROR [org.hibernate.engine.jdbc.spi.SqlExceptionHelper] (ServerService Thread Pool -- 39) Table 'dcm4chedb_5_18.subscription' doesn't exist
+2022-02-07 01:02:49,861 ERROR [org.jboss.as.ejb3.invocation] (ServerService Thread Pool -- 39) WFLYEJB0034: EJB Invocation failed on component UPSServiceEJB for method public java.util.List org.dcm4chee.arc.ups.impl.UPSServiceEJB.statusChangeEvents(org.dcm4chee.arc.conf.ArchiveAEExtension,org.dcm4che3.data.Attributes): javax.ejb.EJBTransactionRolledbackException: could not extract ResultSet
+	at org.jboss.as.ejb3@17.0.1.Final//org.jboss.as.ejb3.tx.CMTTxInterceptor.invokeInCallerTx(CMTTxInterceptor.java:203)
+以下略
+```
+上記理由: installation で`create-*.sql`の適用に失敗している。  
+
+あるいは`dcm4chee-arc-light`のアップデートをしようとした時にデータベースの仕様が変わっていたことが原因。  
+その場合は`update-*-*.sql`を適用する。
+
+#### エラー例
+```
+RESTEASY003210: Could not find resource for full path: http://localhost:8080/dcm4chee-arc/ui2/
+```
+```
+03:10:01,313 WARN  [org.dcm4chee.arc.impl.ArchiveDeviceProducer] (ServerService Thread Pool -- 2) UnzipVendorDataToURI=${jboss.server.temp.url}/dcm4chee-arc, but no Vendor Data
+```
+際だったエラーが`wildfly`の出力にないのに`UI`にアクセス出来ない。  
+
+上記理由
+
+* `jboss-cli`での`deploy dcm4chee-arc-*/deploy/dcm4chee-arc-ui2-*.war`が失敗している。  
+  `deploy`とだけ入力してdeploy済み`war`や`ear`を確認する。  
+  `dcm4chee-arc-ui2-*.war`のように出れば正常。
+
+* `LDAP`への`LDIF`ファイル適用に失敗している。  
+
 #### エラー例 (/PacsDS is missing [jboss.jdbc-driver.mysql])
 ```
 14:52:21,165 INFO  [org.jboss.ws.common.management] (MSC service thread 1-8) JBWS022052: Starting JBossWS 5.3.0.Final (Apache CXF 3.3.2) 
@@ -205,8 +235,7 @@ Exception: localhost:389 [Root exception is java.net.ConnectException: 接続を
     Caused by: javax.naming.CommunicationException: localhost:389 [Root exception is java.net.ConnectException: 接続を拒否されました (Connection refused)]
     Caused by: java.net.ConnectException: 接続を拒否されました (Connection refused)"}}}}
 ```
-##### 上記理由
-LDAP serverへ繋がらない。  
+上記理由: LDAP serverへ繋がらない。  
 上記例の場合は`ポート389`が沈黙している。  
 どのポートを見に行くかはファイル`wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties`の
 ```
@@ -235,7 +264,7 @@ unix系: netstat -a | grep 10389
   java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
   java.naming.security.credentials=secret
 ```
-##### 上記理由
+上記理由:  
 `wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties`にあるLDAP serverへ繋ぐための認証情報がおかしい(dcm4chee/wildflyはLDAPサーバーへは到達できている)
 ```
   java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
@@ -283,19 +312,20 @@ wildfly-26はダメ(新しすぎ)
 ```
 {"WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:" => {"Operation step-2" => {"WFLYCTL0080: Failed services" => {"jboss.deployment.subunit.\"dcm4chee-arc-ear-5.24.2-mysql.ear\".\"dcm4chee-arc-pdq-scheduler-5.24.2.jar\".INSTALL" => "WFLYSRV0153: Failed to process phase INSTALL of subdeployment \"dcm4chee-arc-pdq-scheduler-5.24.2.jar\" of deployment \"dcm4chee-arc-ear-5.24.2-mysql.ear\"
 ```
-|出る|`dcm4chee-arc-5.24.2-mysql`, `openjdk-17.0.1`, `wildfly-17.0.1.Final`|
-|-|-|
-|出ない|`dcm4chee-arc-5.24.2-mysql`, `openjdk-12`, `wildfly-17.0.1.Final`|
+
+* エラー出る: `dcm4chee-arc-5.24.2-mysql`, `openjdk-17.0.1`, `wildfly-17.0.1.Final`
+
+* エラー出ない: `dcm4chee-arc-5.24.2-mysql`, `openjdk-12`, `wildfly-17.0.1.Final`
 
 openjdk-17.0.1はダメ(新しすぎ)
 
 ### 相性問題 × Apache DS 2.0.0-M25
 
-|.|.|
-|-|-|
-|Apache DS 2.0.0-M25|`dicom.ldif`を`import`した後、再起動不可|
-|Apache DS 2.0.0-M24|ok|
-|Apache DS 2.0.0-M9|ok|
+* Apache DS 2.0.0-M25: `dicom.ldif`を`import`した後、再起動不可
+
+* Apache DS 2.0.0-M24: ok
+
+* Apache DS 2.0.0-M9: ok
 
 https://directory.apache.org/apacheds/download-old-versions.html
 
@@ -729,28 +759,32 @@ try { printerr("series-" + ctx.getStoreSession().getCachedSeries(ctx.getStudyIns
 #### (???)
 第1表現  
   ESC: エスケープシーケンス開始  
-第2表現(中間)  
 
-|.|.|.|
-|:-:|:-:|:-:|
-|`"("` | 0x28  | G0 に「94文字集合」リストから ○○ 選びを指示する|
-|`"$"`| 0x24  | G0 に「94n文字集合」リストから ○○ 選びを指示する|
-|`"$("`| 0x2428| G0 に「94n文字集合」リストから ○○ 選びを指示する|
-|なし| .     | G0 に「96文字集合」リストから ○○ 選びを指示する|
-|なし| .     | G0 に「96n文字集合」リストから ○○ 選びを指示する|
-|`"$)"`| 0x2429| G1 に「94n文字集合」リストから ○○ 選びを指示する|
-|`"$-"`| 0x242d| G1 に「96n文字集合」リストから ○○ 選びを指示する|
+第2表現(中間)
+
+* `"("`, `0x28`, G0 に「94文字集合」リストから ○○ 選びを指示する
+* `"$"`, `0x24`, G0 に「94n文字集合」リストから ○○ 選びを指示する
+* `"$("`, `0x2428`, G0 に「94n文字集合」リストから ○○ 選びを指示する
+* `なし`, `なし`, G0 に「96文字集合」リストから ○○ 選びを指示する
+* `なし`, `なし`, G0 に「96n文字集合」リストから ○○ 選びを指示する
+* `"$)"`, `0x2429`, G1 に「94n文字集合」リストから ○○ 選びを指示する
+* `"$-"`, `0x242d`, G1 に「96n文字集合」リストから ○○ 選びを指示する
   
-第3表現(終端)  
-*  "@": 4/0:  
-*  "A": 4/1:  
-*  "B": 4/2:  
-*  "J": 4/10: 0x4A  
+第3表現(終端)
 
-|DICOMでの表現|.|慣用ASCII|10進数|16進数|概要摘要|
-|--------------|---------|---------|----:|-----:|-------------------------------|
-|ISO 2022 IR 87|JIS_X_208|`ESC ( B`|10306|0x2842|漢字|
-|ISO 2022 IR 13|JIS_X_201|`ESC $ B`| 9282|0x2442|92番の文字にバックスラッシュ(`＼`の半角)の替わりに円記号('¥')が、<br>126番にチルダ ('~') の替わりにオーバーライン ('‾')|
+*  "@": 4/0:
+
+*  "A": 4/1:
+
+*  "B": 4/2:
+
+*  "J": 4/10: 0x4A
+
+**(D)**DICOMでの表現, **(C)**およそ対応するCharacter Repertoire, **(A)**慣用ASCII, **(10)**10進数, **(x)**16進数, **(概)**概要摘要
+
+* **(D)**`ISO 2022 IR 87`, **(C)**`JIS_X_208`, **(A)**`ESC ( B`, **(10)**`10306`, **(16)**`0x2842`, **(概)**漢字
+
+* **(D)**`ISO 2022 IR 13`, **(C)**`JIS_X_201`, **(A)**`ESC $ B`, **(10)**`9282`, **(16)**`0x2442`, **(概)**92番の文字にバックスラッシュ(`＼`の半角)の替わりに円記号('¥')が、126番にチルダ ('~') の替わりにオーバーライン ('‾')
 
 (上記出典はどこだったか？`ISO 2022 IR 13`は`JIS X 0201`を示し`ISO-IR 13`と`ISO-IR 14`の2つを利用することを宣言するものだが…？)
 

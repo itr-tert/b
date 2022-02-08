@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="https://itr-tert.github.io/note/feed.xml" rel="self" type="application/atom+xml" /><link href="https://itr-tert.github.io/note/" rel="alternate" type="text/html" /><updated>2022-02-06T17:38:54+09:00</updated><id>https://itr-tert.github.io/note/feed.xml</id><title type="html">メモ束</title><subtitle>-</subtitle><entry><title type="html">dcm4cheの文字化け</title><link href="https://itr-tert.github.io/note/2022-01--dcm4che.html" rel="alternate" type="text/html" title="dcm4cheの文字化け" /><published>2022-02-06T00:00:00+09:00</published><updated>2022-02-06T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/dcm4che</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-01--dcm4che.html">&lt;p&gt;dcm4che / DICOM / ISO 2022 / 日本語処理&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="https://itr-tert.github.io/note/feed.xml" rel="self" type="application/atom+xml" /><link href="https://itr-tert.github.io/note/" rel="alternate" type="text/html" /><updated>2022-02-09T00:05:58+09:00</updated><id>https://itr-tert.github.io/note/feed.xml</id><title type="html">メモ束</title><subtitle>-</subtitle><entry><title type="html">dcm4cheの文字化け</title><link href="https://itr-tert.github.io/note/2022-01--dcm4che.html" rel="alternate" type="text/html" title="dcm4cheの文字化け" /><published>2022-02-08T00:00:00+09:00</published><updated>2022-02-08T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/dcm4che</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-01--dcm4che.html">&lt;p&gt;dcm4che / DICOM / ISO 2022 / 日本語処理&lt;/p&gt;
 
 &lt;h2 id=&quot;文字化け不具合を直しました&quot;&gt;文字化け不具合を直しました&lt;/h2&gt;
 &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4che&lt;/code&gt; や &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt; で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;あaあ&quot;&lt;/code&gt; みたいに全角→半角→全角の時に文字化けする不具合があります。&lt;/p&gt;
@@ -171,6 +171,38 @@ http://localhost:8080/dcm4chee-arc/ui2/&lt;/p&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 &lt;p&gt;上記理由: data-source の記述が間違っている。&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jboss-cli&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;data-source remove --name=PacsDS&lt;/code&gt;としてdata-sourceを一度消して再登録する。&lt;/p&gt;
 
+&lt;h4 id=&quot;エラー例-table--doesnt-exist&quot;&gt;エラー例 (Table ‘’ doesn’t exist)&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;2022-02-07 01:02:49,855 WARN  [org.hibernate.engine.jdbc.spi.SqlExceptionHelper] (ServerService Thread Pool -- 39) SQL Error: 1146, SQLState: 42S02
+2022-02-07 01:02:49,856 ERROR [org.hibernate.engine.jdbc.spi.SqlExceptionHelper] (ServerService Thread Pool -- 39) Table 'dcm4chedb_5_18.subscription' doesn't exist
+2022-02-07 01:02:49,861 ERROR [org.jboss.as.ejb3.invocation] (ServerService Thread Pool -- 39) WFLYEJB0034: EJB Invocation failed on component UPSServiceEJB for method public java.util.List org.dcm4chee.arc.ups.impl.UPSServiceEJB.statusChangeEvents(org.dcm4chee.arc.conf.ArchiveAEExtension,org.dcm4che3.data.Attributes): javax.ejb.EJBTransactionRolledbackException: could not extract ResultSet
+	at org.jboss.as.ejb3@17.0.1.Final//org.jboss.as.ejb3.tx.CMTTxInterceptor.invokeInCallerTx(CMTTxInterceptor.java:203)
+以下略
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;上記理由: installation で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;create-*.sql&lt;/code&gt;の適用に失敗している。&lt;/p&gt;
+
+&lt;p&gt;あるいは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;のアップデートをしようとした時にデータベースの仕様が変わっていたことが原因。&lt;br /&gt;
+その場合は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;update-*-*.sql&lt;/code&gt;を適用する。&lt;/p&gt;
+
+&lt;h4 id=&quot;エラー例&quot;&gt;エラー例&lt;/h4&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;RESTEASY003210: Could not find resource for full path: http://localhost:8080/dcm4chee-arc/ui2/
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;03:10:01,313 WARN  [org.dcm4chee.arc.impl.ArchiveDeviceProducer] (ServerService Thread Pool -- 2) UnzipVendorDataToURI=${jboss.server.temp.url}/dcm4chee-arc, but no Vendor Data
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;際だったエラーが&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly&lt;/code&gt;の出力にないのに&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;UI&lt;/code&gt;にアクセス出来ない。&lt;/p&gt;
+
+&lt;p&gt;上記理由&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jboss-cli&lt;/code&gt;での&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;deploy dcm4chee-arc-*/deploy/dcm4chee-arc-ui2-*.war&lt;/code&gt;が失敗している。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;deploy&lt;/code&gt;とだけ入力してdeploy済み&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;war&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ear&lt;/code&gt;を確認する。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-ui2-*.war&lt;/code&gt;のように出れば正常。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP&lt;/code&gt;への&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDIF&lt;/code&gt;ファイル適用に失敗している。&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
 &lt;h4 id=&quot;エラー例-pacsds-is-missing-jbossjdbc-drivermysql&quot;&gt;エラー例 (/PacsDS is missing [jboss.jdbc-driver.mysql])&lt;/h4&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;14:52:21,165 INFO  [org.jboss.ws.common.management] (MSC service thread 1-8) JBWS022052: Starting JBossWS 5.3.0.Final (Apache CXF 3.3.2) 
 14:52:21,174 ERROR [org.jboss.as.controller.management-operation] (Controller Boot Thread) WFLYCTL0013: Operation (&quot;add&quot;) failed - address: ([
@@ -226,8 +258,7 @@ Exception: localhost:389 [Root exception is java.net.ConnectException: 接続を
     Caused by: javax.naming.CommunicationException: localhost:389 [Root exception is java.net.ConnectException: 接続を拒否されました (Connection refused)]
     Caused by: java.net.ConnectException: 接続を拒否されました (Connection refused)&quot;}}}}
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;h5 id=&quot;上記理由&quot;&gt;上記理由&lt;/h5&gt;
-&lt;p&gt;LDAP serverへ繋がらない。&lt;br /&gt;
+&lt;p&gt;上記理由: LDAP serverへ繋がらない。&lt;br /&gt;
 上記例の場合は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ポート389&lt;/code&gt;が沈黙している。&lt;br /&gt;
 どのポートを見に行くかはファイル&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties&lt;/code&gt;の&lt;/p&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; java.naming.provider.url=ldap://localhost:389/dc=dcm4che,dc=org
@@ -253,8 +284,8 @@ unix系: netstat -a | grep 10389
   java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
   java.naming.security.credentials=secret
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;h5 id=&quot;上記理由-1&quot;&gt;上記理由&lt;/h5&gt;
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties&lt;/code&gt;にあるLDAP serverへ繋ぐための認証情報がおかしい(dcm4chee/wildflyはLDAPサーバーへは到達できている)&lt;/p&gt;
+&lt;p&gt;上記理由:&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties&lt;/code&gt;にあるLDAP serverへ繋ぐための認証情報がおかしい(dcm4chee/wildflyはLDAPサーバーへは到達できている)&lt;/p&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
   java.naming.security.credentials=secret
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
@@ -294,36 +325,31 @@ wildfly-26はダメ(新しすぎ)&lt;/p&gt;
 &lt;h3 id=&quot;相性問題--openjdk-1701&quot;&gt;相性問題 × openjdk-17.0.1&lt;/h3&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;{&quot;WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:&quot; =&amp;gt; {&quot;Operation step-2&quot; =&amp;gt; {&quot;WFLYCTL0080: Failed services&quot; =&amp;gt; {&quot;jboss.deployment.subunit.\&quot;dcm4chee-arc-ear-5.24.2-mysql.ear\&quot;.\&quot;dcm4chee-arc-pdq-scheduler-5.24.2.jar\&quot;.INSTALL&quot; =&amp;gt; &quot;WFLYSRV0153: Failed to process phase INSTALL of subdeployment \&quot;dcm4chee-arc-pdq-scheduler-5.24.2.jar\&quot; of deployment \&quot;dcm4chee-arc-ear-5.24.2-mysql.ear\&quot;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;|出る|&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-5.24.2-mysql&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;openjdk-17.0.1&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-17.0.1.Final&lt;/code&gt;|
-|-|-|
-|出ない|&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-5.24.2-mysql&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;openjdk-12&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-17.0.1.Final&lt;/code&gt;|&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;エラー出る: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-5.24.2-mysql&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;openjdk-17.0.1&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-17.0.1.Final&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;エラー出ない: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-5.24.2-mysql&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;openjdk-12&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-17.0.1.Final&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
 
 &lt;p&gt;openjdk-17.0.1はダメ(新しすぎ)&lt;/p&gt;
 
 &lt;h3 id=&quot;相性問題--apache-ds-200-m25&quot;&gt;相性問題 × Apache DS 2.0.0-M25&lt;/h3&gt;
 
-&lt;table&gt;
-  &lt;thead&gt;
-    &lt;tr&gt;
-      &lt;th&gt;.&lt;/th&gt;
-      &lt;th&gt;.&lt;/th&gt;
-    &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-    &lt;tr&gt;
-      &lt;td&gt;Apache DS 2.0.0-M25&lt;/td&gt;
-      &lt;td&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dicom.ldif&lt;/code&gt;を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;import&lt;/code&gt;した後、再起動不可&lt;/td&gt;
-    &lt;/tr&gt;
-    &lt;tr&gt;
-      &lt;td&gt;Apache DS 2.0.0-M24&lt;/td&gt;
-      &lt;td&gt;ok&lt;/td&gt;
-    &lt;/tr&gt;
-    &lt;tr&gt;
-      &lt;td&gt;Apache DS 2.0.0-M9&lt;/td&gt;
-      &lt;td&gt;ok&lt;/td&gt;
-    &lt;/tr&gt;
-  &lt;/tbody&gt;
-&lt;/table&gt;
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;Apache DS 2.0.0-M25: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dicom.ldif&lt;/code&gt;を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;import&lt;/code&gt;した後、再起動不可&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Apache DS 2.0.0-M24: ok&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Apache DS 2.0.0-M9: ok&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
 
 &lt;p&gt;https://directory.apache.org/apacheds/download-old-versions.html&lt;/p&gt;
 
@@ -802,94 +828,47 @@ In 8-bit code: the GR area is not used. (*)&lt;/p&gt;
 
 &lt;h4 id=&quot;-4&quot;&gt;(???)&lt;/h4&gt;
 &lt;p&gt;第1表現&lt;br /&gt;
-  ESC: エスケープシーケンス開始&lt;br /&gt;
-第2表現(中間)&lt;/p&gt;
+  ESC: エスケープシーケンス開始&lt;/p&gt;
 
-&lt;table&gt;
-  &lt;thead&gt;
-    &lt;tr&gt;
-      &lt;th style=&quot;text-align: center&quot;&gt;.&lt;/th&gt;
-      &lt;th style=&quot;text-align: center&quot;&gt;.&lt;/th&gt;
-      &lt;th style=&quot;text-align: center&quot;&gt;.&lt;/th&gt;
-    &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-    &lt;tr&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;(&quot;&lt;/code&gt;&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;0x28&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;G0 に「94文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
-    &lt;/tr&gt;
-    &lt;tr&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$&quot;&lt;/code&gt;&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;0x24&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;G0 に「94n文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
-    &lt;/tr&gt;
-    &lt;tr&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$(&quot;&lt;/code&gt;&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;0x2428&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;G0 に「94n文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
-    &lt;/tr&gt;
-    &lt;tr&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;なし&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;.&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;G0 に「96文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
-    &lt;/tr&gt;
-    &lt;tr&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;なし&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;.&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;G0 に「96n文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
-    &lt;/tr&gt;
-    &lt;tr&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$)&quot;&lt;/code&gt;&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;0x2429&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;G1 に「94n文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
-    &lt;/tr&gt;
-    &lt;tr&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$-&quot;&lt;/code&gt;&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;0x242d&lt;/td&gt;
-      &lt;td style=&quot;text-align: center&quot;&gt;G1 に「96n文字集合」リストから ○○ 選びを指示する&lt;/td&gt;
-    &lt;/tr&gt;
-  &lt;/tbody&gt;
-&lt;/table&gt;
+&lt;p&gt;第2表現(中間)&lt;/p&gt;
 
-&lt;p&gt;第3表現(終端)&lt;/p&gt;
 &lt;ul&gt;
-  &lt;li&gt;”@”: 4/0:&lt;/li&gt;
-  &lt;li&gt;“A”: 4/1:&lt;/li&gt;
-  &lt;li&gt;“B”: 4/2:&lt;/li&gt;
-  &lt;li&gt;“J”: 4/10: 0x4A&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;(&quot;&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0x28&lt;/code&gt;, G0 に「94文字集合」リストから ○○ 選びを指示する&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$&quot;&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0x24&lt;/code&gt;, G0 に「94n文字集合」リストから ○○ 選びを指示する&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$(&quot;&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0x2428&lt;/code&gt;, G0 に「94n文字集合」リストから ○○ 選びを指示する&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;なし&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;なし&lt;/code&gt;, G0 に「96文字集合」リストから ○○ 選びを指示する&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;なし&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;なし&lt;/code&gt;, G0 に「96n文字集合」リストから ○○ 選びを指示する&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$)&quot;&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0x2429&lt;/code&gt;, G1 に「94n文字集合」リストから ○○ 選びを指示する&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;$-&quot;&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0x242d&lt;/code&gt;, G1 に「96n文字集合」リストから ○○ 選びを指示する&lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;table&gt;
-  &lt;thead&gt;
-    &lt;tr&gt;
-      &lt;th&gt;DICOMでの表現&lt;/th&gt;
-      &lt;th&gt;.&lt;/th&gt;
-      &lt;th&gt;慣用ASCII&lt;/th&gt;
-      &lt;th style=&quot;text-align: right&quot;&gt;10進数&lt;/th&gt;
-      &lt;th style=&quot;text-align: right&quot;&gt;16進数&lt;/th&gt;
-      &lt;th&gt;概要摘要&lt;/th&gt;
-    &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-    &lt;tr&gt;
-      &lt;td&gt;ISO 2022 IR 87&lt;/td&gt;
-      &lt;td&gt;JIS_X_208&lt;/td&gt;
-      &lt;td&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ESC ( B&lt;/code&gt;&lt;/td&gt;
-      &lt;td style=&quot;text-align: right&quot;&gt;10306&lt;/td&gt;
-      &lt;td style=&quot;text-align: right&quot;&gt;0x2842&lt;/td&gt;
-      &lt;td&gt;漢字&lt;/td&gt;
-    &lt;/tr&gt;
-    &lt;tr&gt;
-      &lt;td&gt;ISO 2022 IR 13&lt;/td&gt;
-      &lt;td&gt;JIS_X_201&lt;/td&gt;
-      &lt;td&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ESC $ B&lt;/code&gt;&lt;/td&gt;
-      &lt;td style=&quot;text-align: right&quot;&gt;9282&lt;/td&gt;
-      &lt;td style=&quot;text-align: right&quot;&gt;0x2442&lt;/td&gt;
-      &lt;td&gt;92番の文字にバックスラッシュ(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;＼&lt;/code&gt;の半角)の替わりに円記号(‘¥’)が、&lt;br /&gt;126番にチルダ (‘~’) の替わりにオーバーライン (‘‾’)&lt;/td&gt;
-    &lt;/tr&gt;
-  &lt;/tbody&gt;
-&lt;/table&gt;
+&lt;p&gt;第3表現(終端)&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;”@”: 4/0:&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;“A”: 4/1:&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;“B”: 4/2:&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;“J”: 4/10: 0x4A&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;(D)&lt;/strong&gt;DICOMでの表現, &lt;strong&gt;(C)&lt;/strong&gt;およそ対応するCharacter Repertoire, &lt;strong&gt;(A)&lt;/strong&gt;慣用ASCII, &lt;strong&gt;(10)&lt;/strong&gt;10進数, &lt;strong&gt;(x)&lt;/strong&gt;16進数, &lt;strong&gt;(概)&lt;/strong&gt;概要摘要&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;strong&gt;(D)&lt;/strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 87&lt;/code&gt;, &lt;strong&gt;(C)&lt;/strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS_X_208&lt;/code&gt;, &lt;strong&gt;(A)&lt;/strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ESC ( B&lt;/code&gt;, &lt;strong&gt;(10)&lt;/strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;10306&lt;/code&gt;, &lt;strong&gt;(16)&lt;/strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0x2842&lt;/code&gt;, &lt;strong&gt;(概)&lt;/strong&gt;漢字&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;strong&gt;(D)&lt;/strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 13&lt;/code&gt;, &lt;strong&gt;(C)&lt;/strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS_X_201&lt;/code&gt;, &lt;strong&gt;(A)&lt;/strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ESC $ B&lt;/code&gt;, &lt;strong&gt;(10)&lt;/strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;9282&lt;/code&gt;, &lt;strong&gt;(16)&lt;/strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0x2442&lt;/code&gt;, &lt;strong&gt;(概)&lt;/strong&gt;92番の文字にバックスラッシュ(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;＼&lt;/code&gt;の半角)の替わりに円記号(‘¥’)が、126番にチルダ (‘~’) の替わりにオーバーライン (‘‾’)&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
 
 &lt;p&gt;(上記出典はどこだったか？&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 13&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;を示し&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 13&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;の2つを利用することを宣言するものだが…？)&lt;/p&gt;
 
