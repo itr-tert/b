@@ -2,7 +2,7 @@
 layout: post
 title:  "dcm4cheの文字化け"
 permalink: /2022-01--dcm4che.html
-date: 2022-02-08
+date: 2022-02-12
 toc: true
 ---
 
@@ -11,7 +11,9 @@ dcm4che / DICOM / ISO 2022 / 日本語処理
 ## 文字化け不具合を直しました
 `dcm4che` や `dcm4chee-arc-light` で `"あaあ"` みたいに全角→半角→全角の時に文字化けする不具合があります。  
 
-直したものを本家 https://github.com/dcm4che/dcm4che に pull request してますが放置され中なんで修正版を配布します。  
+~~直したものを本家 https://github.com/dcm4che/dcm4che にpull request してますが放置され中なんで修正版を配布します。~~  
+マージされました(2022-02-12)。  
+5.25.1以前のバージョンに適用するための修正版ファイルを配布します。
 
 [ダウンロード](https://github.com/itr-tert/dcm4che-modmojibake-download)
 
@@ -51,7 +53,7 @@ NOTE: 期待通りの文字列として扱うには、`dcm4chee-arc-light`に`DI
 
 * DICOMデータ(インスタンス)ひとつひとつに対して
   
-  * `dcm4chee-arc-light`からインスタンスをファイルへエクスポート(C-GETやC-MOVEだと文字化け後DICOMが出てくるのでWADOで)
+  * `dcm4chee-arc-light`からインスタンスをダウンロード(C-GETやC-MOVEだと文字化け後DICOMが出てくるのでWADOで)
   
   * `dcm4chee-arc-light`からそのインスタンスを削除
   
