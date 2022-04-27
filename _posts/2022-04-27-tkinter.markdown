@@ -1,0 +1,70 @@
+---
+layout: post
+title:  "python3, tkinter で画像が表示されない。原因はたぶん自動解放"
+date: 2022-04-27
+---
+
+### 結論:
+画像を表示している間はその PhotoImage インスタンスを保持しておく必要がある。  
+(厳密には tkinter.Image のサブクラスのインスタンス)  
+保持しておかなければ画像は表示されない。
+
+### 環境:
+```
+tkinter.TkVersion: 8.6
+python3 --version: Python 3.8.10
+```
+
+### 問題:
+次のコードは期待通りに動く。赤いウィンドウにうずまき模様を書いたgif画像を表示するもの。
+
+{% highlight python linenos %}
+import tkinter
+
+base64_encoded_gif = (
+    "R0lGODdhMgAyAIABAP8A/7LN1SwAAAAAMgAyAAACaYyPqcvtD6OctNqLs968+w+G4kiW5omm6"
+    "sq27gvH8hwDAYDnrm0fPcu7BVvDIfBmMK54ut9S4VTlplEajTndIX1a5vbYU0q34hS2jKpW01"
+    "Sc9Z0UZonf+ti7PhXtZjI/LYemB7XTlvdSAAA7")
+
+window = tkinter.Tk()
+canvas = tkinter.Canvas(window, bg="red")
+canvas.place(x=0, y=0)
+
+def func():
+    photo = tkinter.PhotoImage(data=base64_encoded_gif)
+    canvas.create_image(0, 0, image=photo, anchor=tkinter.NW)
+
+    global photo_holder
+    photo_holder = photo
+
+func()
+
+window.mainloop()
+{% endhighlight %}
+
+コードから `photo_holder = photo` を消すと `photo` は期待に反して**描画されない**。エラーも出ない。
+
+> `mainloop()`が動いている最中でも同様の問題が起きる。  
+> 例えば次のような場合——  
+>> `threading.Thread`を使った別スレッドで、新たな`PhotoImage`を作成し  
+>> `canvas.itemconfig(created_image, image=new_photoimage)`などで表示画像を変更しようとした場合でも、  
+>> `new_photoimage`の中身である`PhotoImageインスタンス`を保持する変数、あるいは保持するオブジェクトがスコープからいなくなると、**期待した描画は起こらない**。エラーも出ない。
+
+
+おそらく、`window.mainloop()` 内のイベント処理がされる前に`photo`の中身が解放されてしまうため。
+
+( 解放されるとしたら`func()`を抜けたタイミングか )
+
+だから解放されないように、`photo`の中身である`PhotoImageインスタンス`を保持するためのコードを書く必要がある。  
+上の例ではグローバルスコープ変数に`PhotoImageインスタンス`を入れることで解放処理から逃れさせている。
+
+`PhotoImage`の初期化方法にかかわらずこの問題は起きる。  
+例えば:
+* `tkinter.PhotoImage(file="image.png")`
+* `PIL.ImageTk.PhotoImage(file="image2.png")`
+* `PIL.ImageTk.PhotoImage(image=rgb_pil_array)`
+
+### ・・・なんで？:
+* `python`には`C++`のようなスコープ抜け時の解放処理はない(そもそも`python`の`オブジェクト`は`プリミティブ型`を除いて`C++`で言えばポインター扱い。だから`C++`だったとしてもデストラクタは走らない)
+* だったとしても `create_image` を通じて`tk`が`photo`を保持するはず(←tkinterにこの仕様が抜けている？)
+* ※ `create_image` の結果は int か str であってオブジェクトではない

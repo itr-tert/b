@@ -37,6 +37,7 @@ permalink: /:year-:month-:day-:title:output_ext
 # Build settings
 # bundle info --path minima
 theme: minima
+highlighter: rouge
 
 minima:
   date_format: "%Y-%m-%d"
@@ -71,4 +72,5 @@ exclude:
   - vendor/cache/
   - vendor/gems/
   - vendor/ruby/
+
 

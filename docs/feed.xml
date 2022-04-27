@@ -1,9 +1,102 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="https://itr-tert.github.io/note/feed.xml" rel="self" type="application/atom+xml" /><link href="https://itr-tert.github.io/note/" rel="alternate" type="text/html" /><updated>2022-02-09T00:05:58+09:00</updated><id>https://itr-tert.github.io/note/feed.xml</id><title type="html">メモ束</title><subtitle>-</subtitle><entry><title type="html">dcm4cheの文字化け</title><link href="https://itr-tert.github.io/note/2022-01--dcm4che.html" rel="alternate" type="text/html" title="dcm4cheの文字化け" /><published>2022-02-08T00:00:00+09:00</published><updated>2022-02-08T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/dcm4che</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-01--dcm4che.html">&lt;p&gt;dcm4che / DICOM / ISO 2022 / 日本語処理&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="https://itr-tert.github.io/note/feed.xml" rel="self" type="application/atom+xml" /><link href="https://itr-tert.github.io/note/" rel="alternate" type="text/html" /><updated>2022-04-27T19:18:26+09:00</updated><id>https://itr-tert.github.io/note/feed.xml</id><title type="html">メモ束</title><subtitle>-</subtitle><entry><title type="html">python3, tkinter で画像が表示されない。原因はたぶん自動解放</title><link href="https://itr-tert.github.io/note/2022-04-27-tkinter.html" rel="alternate" type="text/html" title="python3, tkinter で画像が表示されない。原因はたぶん自動解放" /><published>2022-04-27T00:00:00+09:00</published><updated>2022-04-27T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/tkinter</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-04-27-tkinter.html">&lt;h3 id=&quot;結論&quot;&gt;結論:&lt;/h3&gt;
+&lt;p&gt;画像を表示している間はその PhotoImage インスタンスを保持しておく必要がある。&lt;br /&gt;
+(厳密には tkinter.Image のサブクラスのインスタンス)&lt;br /&gt;
+保持しておかなければ画像は表示されない。&lt;/p&gt;
+
+&lt;h3 id=&quot;環境&quot;&gt;環境:&lt;/h3&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;tkinter.TkVersion: 8.6
+python3 --version: Python 3.8.10
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;問題&quot;&gt;問題:&lt;/h3&gt;
+&lt;p&gt;次のコードは期待通りに動く。赤いウィンドウにうずまき模様を書いたgif画像を表示するもの。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;table class=&quot;rouge-table&quot;&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td class=&quot;gutter gl&quot;&gt;&lt;pre class=&quot;lineno&quot;&gt;1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;tkinter&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;base64_encoded_gif&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;&quot;R0lGODdhMgAyAIABAP8A/7LN1SwAAAAAMgAyAAACaYyPqcvtD6OctNqLs968+w+G4kiW5omm6&quot;&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;&quot;sq27gvH8hwDAYDnrm0fPcu7BVvDIfBmMK54ut9S4VTlplEajTndIX1a5vbYU0q34hS2jKpW01&quot;&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;&quot;Sc9Z0UZonf+ti7PhXtZjI/LYemB7XTlvdSAAA7&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;window&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tkinter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Tk&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;canvas&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tkinter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Canvas&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;window&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;bg&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;red&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;canvas&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;place&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;y&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;func&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;():&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;photo&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tkinter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PhotoImage&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;data&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;base64_encoded_gif&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;canvas&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;create_image&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;photo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;anchor&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;tkinter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;NW&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;global&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;photo_holder&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;photo_holder&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;photo&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;func&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;window&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;mainloop&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;コードから &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo_holder = photo&lt;/code&gt; を消すと &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt; は期待に反して&lt;strong&gt;描画されない&lt;/strong&gt;。エラーも出ない。&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;mainloop()&lt;/code&gt;が動いている最中でも同様の問題が起きる。&lt;br /&gt;
+例えば次のような場合——&lt;/p&gt;
+  &lt;blockquote&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;threading.Thread&lt;/code&gt;を使った別スレッドで、新たな&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImage&lt;/code&gt;を作成し&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;canvas.itemconfig(created_image, image=new_photoimage)&lt;/code&gt;などで表示画像を変更しようとした場合でも、&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;new_photoimage&lt;/code&gt;の中身である&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImageインスタンス&lt;/code&gt;を保持する変数、あるいは保持するオブジェクトがスコープからいなくなると、&lt;strong&gt;期待した描画は起こらない&lt;/strong&gt;。エラーも出ない。&lt;/p&gt;
+  &lt;/blockquote&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;おそらく、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;window.mainloop()&lt;/code&gt; 内のイベント処理がされる前に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt;の中身が解放されてしまうため。&lt;/p&gt;
+
+&lt;p&gt;( 解放されるとしたら&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;func()&lt;/code&gt;を抜けたタイミングか )&lt;/p&gt;
+
+&lt;p&gt;だから解放されないように、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt;の中身である&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImageインスタンス&lt;/code&gt;を保持するためのコードを書く必要がある。&lt;br /&gt;
+上の例ではグローバルスコープ変数に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImageインスタンス&lt;/code&gt;を入れることで解放処理から逃れさせている。&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImage&lt;/code&gt;の初期化方法にかかわらずこの問題は起きる。&lt;br /&gt;
+例えば:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;tkinter.PhotoImage(file=&quot;image.png&quot;)&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PIL.ImageTk.PhotoImage(file=&quot;image2.png&quot;)&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PIL.ImageTk.PhotoImage(image=rgb_pil_array)&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;なんで&quot;&gt;・・・なんで？:&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;python&lt;/code&gt;には&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C++&lt;/code&gt;のようなスコープ抜け時の解放処理はない(そもそも&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;python&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;オブジェクト&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;プリミティブ型&lt;/code&gt;を除いて&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C++&lt;/code&gt;で言えばポインター扱い。だから&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C++&lt;/code&gt;だったとしてもデストラクタは走らない)&lt;/li&gt;
+  &lt;li&gt;だったとしても &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;create_image&lt;/code&gt; を通じて&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;tk&lt;/code&gt;が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt;を保持するはず(←tkinterにこの仕様が抜けている？)&lt;/li&gt;
+  &lt;li&gt;※ &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;create_image&lt;/code&gt; の結果は int か str であってオブジェクトではない&lt;/li&gt;
+&lt;/ul&gt;</content><author><name></name></author><summary type="html">結論: 画像を表示している間はその PhotoImage インスタンスを保持しておく必要がある。 (厳密には tkinter.Image のサブクラスのインスタンス) 保持しておかなければ画像は表示されない。</summary></entry><entry><title type="html">dcm4cheの文字化け</title><link href="https://itr-tert.github.io/note/2022-01--dcm4che.html" rel="alternate" type="text/html" title="dcm4cheの文字化け" /><published>2022-02-24T00:00:00+09:00</published><updated>2022-02-24T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/dcm4che</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-01--dcm4che.html">&lt;p&gt;初稿: 2022-01-xx&lt;/p&gt;
+
+&lt;p&gt;dcm4che / DICOM / ISO 2022 / 日本語処理&lt;/p&gt;
 
 &lt;h2 id=&quot;文字化け不具合を直しました&quot;&gt;文字化け不具合を直しました&lt;/h2&gt;
 &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4che&lt;/code&gt; や &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt; で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;あaあ&quot;&lt;/code&gt; みたいに全角→半角→全角の時に文字化けする不具合があります。&lt;/p&gt;
 
-&lt;p&gt;直したものを本家 https://github.com/dcm4che/dcm4che に pull request してますが放置され中なんで修正版を配布します。&lt;/p&gt;
+&lt;p&gt;&lt;del&gt;直したものを本家 https://github.com/dcm4che/dcm4che にpull request してますが放置され中なんで修正版を配布します。&lt;/del&gt;&lt;br /&gt;
+マージされました(2022-02-12)。&lt;br /&gt;
+5.25.1以前のバージョンに適用するための修正版ファイルを配布します。&lt;/p&gt;
 
 &lt;p&gt;&lt;a href=&quot;https://github.com/itr-tert/dcm4che-modmojibake-download&quot;&gt;ダウンロード&lt;/a&gt;&lt;/p&gt;
 
@@ -59,7 +152,7 @@
 
     &lt;ul&gt;
       &lt;li&gt;
-        &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;からインスタンスをファイルへエクスポート(C-GETやC-MOVEだと文字化け後DICOMが出てくるのでWADOで)&lt;/p&gt;
+        &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;からインスタンスをダウンロード(C-GETやC-MOVEだと文字化け後DICOMが出てくるのでWADOの&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;⤓&lt;/code&gt;(下線へ向く下矢印アイコン)で)&lt;/p&gt;
       &lt;/li&gt;
       &lt;li&gt;
         &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;からそのインスタンスを削除&lt;/p&gt;
@@ -979,4 +1072,4 @@ Encoded String側を修正してTestへ。&lt;/p&gt;
 The old source code misunderstood that the codec GR(G1) characters could
 be used even when used G0-EscSeq of the codec, and vice versa. This
 caused problems when complex switches were needed, like Japanese.
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;</content><author><name></name></author><summary type="html">dcm4che / DICOM / ISO 2022 / 日本語処理</summary></entry></feed>
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;</content><author><name></name></author><summary type="html">初稿: 2022-01-xx</summary></entry></feed>

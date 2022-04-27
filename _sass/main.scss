@@ -10,3 +10,35 @@ code {
     margin-top: 1ex;
     margin-bottom: 1ex;
 }
+
+/* シンタックスハイライト関係 */
+pre, code {
+    /* background-color: white; */
+}
+
+.highlight pre, .highlight pre code, .highlight pre code table {
+    margin-bottom: 0px;
+}
+
+pre, code > .highlight table td {
+    padding: 0px;
+    border: none;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    border-left-style: solid;
+    border-left-width: 3px;
+    padding-left: 1ex;
+}
+
+/*
+h2 { padding-left: 1.0ex; }
+h3 { padding-left: 1.5ex; }
+h4 { padding-left: 2.0ex; }
+h5 { padding-left: 2.5ex; }
+h6 { padding-left: 1ex; }
+*/
+
+blockquote {
+    font-style: normal;
+}

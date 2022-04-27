@@ -2,9 +2,11 @@
 layout: post
 title:  "dcm4cheの文字化け"
 permalink: /2022-01--dcm4che.html
-date: 2022-02-12
+date: 2022-02-24
 toc: true
 ---
+
+初稿: 2022-01-xx
 
 dcm4che / DICOM / ISO 2022 / 日本語処理
 
@@ -53,7 +55,7 @@ NOTE: 期待通りの文字列として扱うには、`dcm4chee-arc-light`に`DI
 
 * DICOMデータ(インスタンス)ひとつひとつに対して
   
-  * `dcm4chee-arc-light`からインスタンスをダウンロード(C-GETやC-MOVEだと文字化け後DICOMが出てくるのでWADOで)
+  * `dcm4chee-arc-light`からインスタンスをダウンロード(C-GETやC-MOVEだと文字化け後DICOMが出てくるのでWADOの`⤓`(下線へ向く下矢印アイコン)で)
   
   * `dcm4chee-arc-light`からそのインスタンスを削除
   
