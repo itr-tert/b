@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>python3 でサブモジュールも reload する | メモ束</title>
+<meta name="generator" content="Jekyll v3.9.0" />
+<meta property="og:title" content="python3 でサブモジュールも reload する" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="結論コード: 1 2 3 import importlib import os.path import sys" />
+<meta property="og:description" content="結論コード: 1 2 3 import importlib import os.path import sys" />
+<link rel="canonical" href="https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html" />
+<meta property="og:url" content="https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html" />
+<meta property="og:site_name" content="メモ束" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2022-05-17T00:00:00+09:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="python3 でサブモジュールも reload する" />
+<script type="application/ld+json">
+{"mainEntityOfPage":{"@type":"WebPage","@id":"https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html"},"@type":"BlogPosting","url":"https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html","headline":"python3 でサブモジュールも reload する","dateModified":"2022-05-17T00:00:00+09:00","datePublished":"2022-05-17T00:00:00+09:00","description":"結論コード: 1 2 3 import importlib import os.path import sys","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/note/assets/css/styles.css"><link type="application/atom+xml" rel="alternate" href="https://itr-tert.github.io/note/feed.xml" title="メモ束" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/note/">メモ束</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">python3 でサブモジュールも reload する</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2022-05-17T00:00:00+09:00" itemprop="datePublished">2022-05-17
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <h3 id="結論コード">結論コード:</h3>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+</pre></td><td class="code"><pre><span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="c1"># Below function code is released under license "CC0 1.0 Universal" by itr-tert
+# https://creativecommons.org/publicdomain/zero/1.0/deed.en
+</span><span class="k">def</span> <span class="nf">reload_module_tree</span><span class="p">(</span><span class="n">target_module</span><span class="p">):</span>
+    <span class="s">"""
+    Import a previously imported module and submodules of them anew and return
+    it.
+    This function considers the directory in which the module is located and
+    the modules under it as submodules. Remove those modules from sys.modules
+    and execute importlib.import_module for target_module.
+    using:
+      ex1: globals()["mod1"] = reload_module_tree(mod1)
+      ex2: import mod6
+           from mod6 import func7
+           func8 = mod6.func8
+           globals()["mod6"] = reload_module_tree(mod6)
+    In the case of ex2, the contents of mod6 are realoded, but func7 and func8
+    have older contents(mod6.func7 and mod6.func8 have newer contents).
+    """</span>
+    <span class="n">target_directory</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">target_module</span><span class="p">.</span><span class="n">__file__</span><span class="p">)</span>
+    <span class="n">module_name_list_to_delete</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">loaded_module_name</span> <span class="ow">in</span> <span class="n">sys</span><span class="p">.</span><span class="n">modules</span><span class="p">:</span>
+        <span class="n">loaded_module_self</span> <span class="o">=</span> <span class="n">sys</span><span class="p">.</span><span class="n">modules</span><span class="p">[</span><span class="n">loaded_module_name</span><span class="p">]</span>
+        <span class="k">if</span>     <span class="p">(</span><span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">loaded_module_self</span><span class="p">,</span> <span class="s">"__file__"</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="n">loaded_module_self</span><span class="p">.</span><span class="n">__file__</span> <span class="ow">is</span> <span class="bp">None</span>
+                <span class="ow">or</span> <span class="ow">not</span> <span class="n">loaded_module_self</span><span class="p">.</span><span class="n">__file__</span><span class="p">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">target_directory</span><span class="p">)):</span>
+            <span class="k">continue</span>
+        <span class="n">module_name_list_to_delete</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">loaded_module_name</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">module_name_list_to_delete</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">sys</span><span class="p">.</span><span class="n">modules</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">importlib</span><span class="p">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">target_module</span><span class="p">.</span><span class="n">__name__</span><span class="p">)</span>
+</pre></td></tr></tbody></table></code></pre></figure>
+
+<h3 id="環境">環境:</h3>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 --version: Python 3.8.10
+</code></pre></div></div>
+
+<h3 id="なにが問題か">なにが問題か:</h3>
+<p><code class="language-plaintext highlighter-rouge">importlib.reload</code> は引数モジュールのサブモジュールをリロードしない。<br />
+引数指定したモジュールが参照しているサブモジュールもリロードして欲しい。</p>
+
+<p>上記のコードでは引数に指定したモジュールのファイルパスを<code class="language-plaintext highlighter-rouge">.__file__</code>から得て、そのディレクトリ以下にファイルパスが属しているモジュールを <code class="language-plaintext highlighter-rouge">sys.modules</code> から削除してから、再びインポートしている。</p>
+
+<p><code class="language-plaintext highlighter-rouge">sys.modules</code> から削除することは unload ではないが似た作用を持つ。</p>
+
+<p>この方法は、サブモジュールやサブファイルの増減にも対応している。</p>
+
+<p>(ただ単にロード済みモジュールをリロードするだけでは増減に対応できない。)</p>
+
+<h3 id="必要な-reload-実装のためのヒント">必要な reload 実装のためのヒント</h3>
+
+<p>実際にどのような reload が必要かは、場合によるため一意な解決策はない。</p>
+
+<ul>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">import</code> されたモジュールはキャッシュされる。ふたたび <code class="language-plaintext highlighter-rouge">import</code> してもモジュール内容は更新されない。そのキャッシュは <code class="language-plaintext highlighter-rouge">sys.modules</code> にある。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">importlib.reload</code>:</p>
+
+    <ul>
+      <li>指定したモジュール実体そのものを置き換えるかのような挙動をする。
+        <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>import mod1
+mod_one = mod1
+importlib.reload(mod1)
+</code></pre></div>        </div>
+        <p>とした場合でも <code class="language-plaintext highlighter-rouge">mod_one</code> は新しくなっている。</p>
+      </li>
+      <li>しかし、関数やクラスなどオブジェクトに対してはそうではない。
+        <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>import mod1
+func1 = mod1.func1
+importlib.reload(mod1)
+func1()
+</code></pre></div>        </div>
+        <p>この場合に最後に実行される func1 は古い実装のもの。これは<code class="language-plaintext highlighter-rouge">from mod1 import func1</code>でも同様。(<code class="language-plaintext highlighter-rouge">mod1.func1()</code> ならば新しいものが実行される)</p>
+      </li>
+    </ul>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">built-in module</code> は <code class="language-plaintext highlighter-rouge">hasattr(built_in_module1, '__file__')</code> == False</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">__init__.py</code> がないディレクトリ名に対するインポートは module型の namespace になる(<code class="language-plaintext highlighter-rouge">import dir_name; str(dir_name)</code> は <code class="language-plaintext highlighter-rouge">&lt;module 'dir_name' (namespace)&gt;</code>)<br />
+  <code class="language-plaintext highlighter-rouge">namespace module</code> は <code class="language-plaintext highlighter-rouge">namespace_module1.__file__ is None</code></p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">__init__.py</code> があるディレクトリ名に対するインポートだと <code class="language-plaintext highlighter-rouge">import dir_name; dir_name.__file__ == "dir_name/__init.py"</code></p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">inspect.getfile(obj)</code> で <code class="language-plaintext highlighter-rouge">obj</code> が定義されたファイルが分かる。また <code class="language-plaintext highlighter-rouge">inspect.getfile</code> の定義も参照のこと。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">globals()</code> はそれが書かれた場所でのグローバル変数連想配列を返す。<br />
+これの要素の書き換えは反映される。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">locals()</code> はそれが書かれた場所でのローカル変数連数配列を返す。<br />
+これを書き換えても反映されない。</p>
+  </li>
+  <li>
+    <p>see also: <code class="language-plaintext highlighter-rouge">IPython.lib.deepreload.reload</code></p>
+  </li>
+</ul>
+
+  </div><a class="u-url" href="/note/2022-05-17-python3-reload-module.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/note/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">メモ束</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">メモ束</li><li><a class="u-email" href="mailto:itr.tert+code(@)gmail.com">itr.tert+code(@)gmail.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/itr-tert"><svg class="svg-icon"><use xlink:href="/note/assets/minima-social-icons.svg#github"></use></svg> <span class="username">itr-tert</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>-</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
