@@ -1,0 +1,48 @@
+span.icon > .fa {
+  cursor: default;
+}
+.admonitionblock td.icon {
+  text-align: center;
+  width: 1.5em;
+  font-size: 110%
+}
+
+.admonitionblock.note table {
+#    border-left-color: blue;
+    border-width: 2px;
+}
+
+.admonitionblock.caution table {
+#    border-left-color: orange;
+    border-width: 2px;
+}
+
+.admonitionblock.tip table {
+#    border-left-color: rgba(155,155,0,.8);
+    border-width: 2px;
+    text-shadow: 1px 1px 2px #ddd;
+}
+
+.admonitionblock.warning table {
+    border-color: red;
+    border-width: 2px;
+}
+
+.admonitionblock.important table {
+    border-color: black;
+    border-width: 2px;
+}
+
+.admonitionblock {
+    table { border-collapse: unset; }
+    td { border: 0px none white; }
+}
+
+
+.admonitionblock table {
+    border-collapse: unset;
+}
+
+.admonitionblock {
+    margin-left: 1em;
+}

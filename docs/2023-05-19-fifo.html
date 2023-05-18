@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>FIFO Special File | メモ束</title>
+<meta name="generator" content="Jekyll v3.9.0" />
+<meta property="og:title" content="FIFO Special File" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="-" />
+<meta property="og:description" content="-" />
+<link rel="canonical" href="https://itr-tert.github.io/note/2023-05-19-fifo.html" />
+<meta property="og:url" content="https://itr-tert.github.io/note/2023-05-19-fifo.html" />
+<meta property="og:site_name" content="メモ束" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2023-05-19T00:00:00+09:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="FIFO Special File" />
+<script type="application/ld+json">
+{"headline":"FIFO Special File","dateModified":"2023-05-19T00:00:00+09:00","datePublished":"2023-05-19T00:00:00+09:00","description":"-","url":"https://itr-tert.github.io/note/2023-05-19-fifo.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://itr-tert.github.io/note/2023-05-19-fifo.html"},"@type":"BlogPosting","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/note/assets/css/styles.css"><link type="application/atom+xml" rel="alternate" href="https://itr-tert.github.io/note/feed.xml" title="メモ束" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/note/">メモ束</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">FIFO Special File</h1>
+    <p class="post-meta">
+      公開:<time class="dt-published" datetime="2023-05-19T00:00:00+09:00" itemprop="datePublished">2023-05-19
+      </time>/ 更新:<time class="dt-modified" datetime="2023-05-19T00:00:00+09:00" itemprop="dateMOdified">
+          2023-05-19
+        </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    
+    
+    <ul><li><a href="#前置き">前置き</a></li><li><a href="#基本動作">基本動作</a></li><li><a href="#ブロッキング">ブロッキング</a></li><li><a href="#パイプの終了">パイプの終了</a></li><li><a href="#end-pipe">余談, パイプの終了, 複数の書き込み側, 複数の読み込み側</a></li></ul>
+    <div class="sect1">
+<h2 id="前置き">前置き</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>元々は​<a href="2023-03-07-ffmpeg-custom-filter.html">[ffmpeg: 任意の画像加工コマンドで動画を加工する</a>]​内の文書だったが、長くなったので分けたもの。</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="基本動作">基本動作</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>データが first-in first-out する特殊ファイル, <code>named pipe</code>​とも呼ばれる。以降​<code>fifo</code>​と表記。<br>
+<code>cat example.txt | more</code>​の​<code>|</code><sup>vertical-line</sup>​によるパイプよりも複雑なことをするための道具の一つ。</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>fifo(7)<br>
+bash(1)/SHELL GRAMMAR/pipeline<br>
+open(2)/NOTES/FIFOs</p>
+</div>
+</blockquote>
+</div>
+<div class="paragraph">
+<p><code>fifo</code>​に対して書き込み側が​<code>"abc&#8230;&#8203;"</code>​と書き込むと、読み込み側に​<code>"abc&#8230;&#8203;"</code>​と出て来るイメージ。<br>
+だからパイプと比喩される。しかし、​<code>fifo</code>​はパイプそのものではない。</p>
+</div>
+<div class="paragraph">
+<p>上記動作をするものがパイプ。<br>
+一方でパイプ関係を成立させるためのパスが​<code>fifoファイル</code>​。<br>
+<code>fifoファイル</code>​自体はすなわちでパイプではない。後述のパイプの終了に関する仕様が理由。</p>
+</div>
+<div class="paragraph">
+<p><code>fifoファイル</code>​はファイルシステム上にパスを持つが、データがストレージに保存されるわけではない。<br>
+見掛け上のファイルサイズは常に​<code>0 Byte</code>。</p>
+</div>
+<div class="paragraph">
+<p>利用する上で注意しなければいけないことはブロッキングとパイプの終了。</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ブロッキング">ブロッキング</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>fifo</code>​では読み込み側と書き込み側の両方が​<code>open</code>​操作をするまで、つまり両者が揃うまで、それぞれの​<code>open</code>​は終わらない。<br>
+このことを指して「(条件が揃うまで)ブロックされる」や「(条件が揃うまで)制御は戻らない」などと呼ぶ。<br>
+ブロッキングは​<code>bash</code>​で​<code>fifo</code>​を扱う場合にも関係する。</p>
+</div>
+<div class="paragraph">
+<p>次の​<code>bash</code>​表現はブロッキングが起きる可能性がある。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">exec</span> <span style="color: #666666">110</span>&lt; <span style="color: #BA2121">&quot;fifoA&quot;</span>
+<span style="color: #408080; font-style: italic"># fifoA​をread-modeでopenして、110番のfile descriptorで管理するという意味</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>open</code>​の操作がある。そのため、別のプロセスがパイプのもう一方として​<code>"fifoA"</code>​を​<code>write-mode</code>​で​<code>open</code>​するまで上記​<code>exec</code>​は終わらない(制御は戻らない)。</p>
+</div>
+<div class="paragraph">
+<p><code>bash</code>​のリダイレクト操作構文については別ページ​<a href="2023-03-13-bash-fd.html">[bashのFD(file descriptor)操作について</a>]​​へ。</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>このブロッキングには例外(それと少し予測しにくい挙動)がある<br>
+<code>O_NONBLOCK</code>​を指定して​<code>open</code>​した場合はブロックされない。。<br>
+<code>rw-mode</code>(read and write mode)での​<code>open</code>​の際はブロックされない。</p>
+</div>
+<div class="paragraph">
+<p><code>bash</code>​では​<code>O_NONBLOCK</code>​指定はできないため、関係がない。</p>
+</div>
+<div class="paragraph">
+<p><code>bash</code>​では​<code>&lt;&gt;</code><sup>less-than-sign,greater-than-sign</sup>​で​<code>rw-mode</code>​による​<code>open</code>​が​出来る。</p>
+</div>
+</blockquote>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="パイプの終了">パイプの終了</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>読み込み側が​<code>close</code>​した時点で、書き込み側の​<code>write</code>​は失敗するようになる。</p>
+</div>
+<div class="paragraph">
+<p>書き込み側が​<code>close</code>​して、なおかつ読み込み側が残り全てを​<code>read</code>​したら​<code>EOF</code><sup>end-of-file</sup>​により終了する。</p>
+</div>
+<div class="paragraph">
+<p>一度​<code>close</code>​して、再び​同じ​<code>fifoファイル</code>​を開いても同じパイプには繋がらないため、読み込み側は続きのデータが欲しい間は​<code>close</code>​してはいけない。<br>
+(この説明は正確ではない。​<code>再open</code>​でも同じパイプから続きのデータを読める状況は存在する。下記参照)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="end-pipe">余談, パイプの終了, 複数の書き込み側, 複数の読み込み側</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>別ページ <a href="2023-03-07-ffmpeg-custom-filter.html">[ffmpeg: 任意の画像加工コマンドで動画を加工する</a>] の余談と、複数の書き込み側と複数の読み込み側がある場合の​<code>fifo-pipe</code>​の挙動の説明をする。</p>
+</div>
+<div class="paragraph">
+<p><code>exec 121&gt; "${fifo_s2_to_s3}"</code>​など、リンク先の実装例ではブロッキングを考慮したために書き方が複雑化した。​<code>&lt;&gt;</code>​を使えばシンプルに表現出来たかも知れない。</p>
+</div>
+<div class="paragraph">
+<p>さらに言えば​<code>fifo</code>​は​<code>複数の書き込み側</code>​と​<code>複数の読み込み側</code>​という組み合わせをサポートしている。<br>
+この仕様を使った場合も、コードがシンプルになったかも知れない。</p>
+</div>
+<div class="sect2">
+<h3 id="複数の書き込み側">複数の書き込み側</h3>
+<div class="paragraph">
+<p><code>複数の書き込み側</code>​によって並列して書き込まれたデータは直列に並び変えられて読み込み側に届く。<br>
+この挙動は通常ファイルに並列に書き込んだ際の結果と異なる。</p>
+</div>
+<div class="sidebarblock">
+<div class="content">
+<div class="paragraph">
+<div class="title">［複数の書き込み側の動作例］</div>
+<p><code>writer1</code>​が​<code>"abcd"</code>​、​<code>writer2</code>​が​<code>"123"</code>​を同時並列に書き込んだとする。</p>
+</div>
+<div class="paragraph">
+<p><code>通常ファイル</code>​が書き込み先の場合、結果は​<code>"abcd"</code>​や​<code>"123"</code>​あるいはややこしく​<code>"123d"</code>, <code>"1b3d"</code>​などの​<strong>切り詰め</strong>​られて​<strong>上書き</strong>​された結果の組み合わせである。</p>
+</div>
+<div class="paragraph">
+<p><code>fifoファイル</code>​が書き込み先の場合、結果は​<code>"abcd123"</code>​や​<code>"123abcd"</code>​あるいはややこしく​<code>"a12bc3d"</code>​など​<strong>直列に並べ</strong>​られた組み合わせである。</p>
+</div>
+<div class="paragraph">
+<p>(<code>1byte</code>​単位でデータが混ざる実行環境は普通はない。書き込み単位、バッファーサイズ、改行などの区切り文字の単位で混ざる)</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="複数の読み込み側">複数の読み込み側</h3>
+<div class="paragraph">
+<p><code>複数の読み込み側</code>​がある場合にそれぞれの読み込み側に来るデータはどうなっているか？<br>
+想定できる次の二つの動作のうち、正解は後者である。</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>[誤]: 全ての読み込み側に同じデータが来る</p>
+</li>
+<li>
+<p>[正]: 製造ライン作業のように手が空いた読み込み側が先頭から取っていく。</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>読み込み側も書き込み側と同じ様に直列に読み込んでいく仕様である。</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="複数の読み書きがある際のパイプの終了">複数の読み書きがある際のパイプの終了</h3>
+<div class="paragraph">
+<p>挙動を予測しにくいのがパイプの終了に関するこの仕様。</p>
+</div>
+<div class="paragraph">
+<p>一つ以上の書き込み側が​<code>open</code>​中ならば書き込みは継続しているとパイプに見なされる。<br>
+一つ以上の読み込み側が​<code>open</code>​中ならば読み込みは継続しているとパイプに見なされる。</p>
+</div>
+<div class="paragraph">
+<p>つまり、書き込み側も読み込み側も同役割の​<code>file descriptor</code>​が一つ以上存在してさえいれば、一旦​<code>close</code>​してから再び​<code>open</code>​しても、同じパイプに対して書き込みや読み込みを再開することが出来る。</p>
+</div>
+<div class="paragraph">
+<p>このパイプの終了を回避出来る仕様を使えば​<code>bash</code>​の並列実行で​<code>fifo</code>​を​<code>open</code>​だけして​<code>1byte</code>​も読み込まない、読み込み意思表示キーパーを置いておけば、​<a href="2023-03-07-ffmpeg-custom-filter.html">[ffmpeg: 任意の画像加工コマンドで動画を加工する</a>]​で​<code>FD操作</code>​なしで書けたかも知れない。</p>
+</div>
+<div class="paragraph">
+<p>その場合はきっと、いささか乱暴なジョブコントロールが必要になっただろうが。</p>
+</div>
+</div>
+</div>
+</div>
+
+    
+  </div><a class="u-url" href="/note/2023-05-19-fifo.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/note/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">メモ束</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">メモ束</li><li><a class="u-email" href="mailto:itr.tert+code(@)gmail.com">itr.tert+code(@)gmail.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/itr-tert"><svg class="svg-icon"><use xlink:href="/note/assets/minima-social-icons.svg#github"></use></svg> <span class="username">itr-tert</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>-</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

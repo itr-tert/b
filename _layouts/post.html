@@ -6,17 +6,31 @@ layout: default
   <header class="post-header">
     <h1 class="post-title p-name" itemprop="name headline">{{ page.title | escape }}</h1>
     <p class="post-meta">
-      <time class="dt-published" datetime="{{ page.date | date_to_xmlschema }}" itemprop="datePublished">
+      公開:<time class="dt-published" datetime="{{ page.date | date_to_xmlschema }}" itemprop="datePublished">
         {%- assign date_format = site.minima.date_format | default: "%b %-d, %Y" -%}
         {{ page.date | date: date_format }}
       </time>
+
+      {%- if page.modified_date -%}
+        / 更新:<time class="dt-modified" datetime="{{ page.modified_date | date_to_xmlschema }}" itemprop="dateMOdified">
+          {{ page.modified_date | date: date_format }}
+        </time>
+      {%- endif -%}
+      
       {%- if page.author -%}
         • <span itemprop="author" itemscope itemtype="http://schema.org/Person"><span class="p-author h-card" itemprop="name">{{ page.author }}</span></span>
       {%- endif -%}</p>
   </header>
 
   <div class="post-content e-content" itemprop="articleBody">
-    {{ content | toc }}
+    {% assign my_toc_min = page.toc_min | default: site.toc_min | default: 1 %}
+    {% assign my_toc_max = page.toc_max | default: site.toc_max | default: 3 %}
+    {% include toc.html html=content sanitize=false h_min=my_toc_min h_max=my_toc_max %}
+    {{ content }}
+
+    {% comment %}
+        {{ content | toc }}
+    {% endcomment %}
   </div>
 
   {%- if site.disqus.shortname -%}

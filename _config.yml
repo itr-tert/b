@@ -47,6 +47,7 @@ plugins:
   - jekyll-feed
   - jekyll-sitemap
   - jekyll-toc
+  - asciidoctor
 
 destination: ./docs
 
@@ -74,3 +75,60 @@ exclude:
   - vendor/ruby/
 
 
+kramdown:
+  hard_wrap: true  # 改行を改行として扱う
+
+asciidoc:
+  processor:                   asciidoctor
+  require_front_matter_header: true
+  ext:                         adoc
+
+asciidoctor:
+  safe:                        unsafe
+  template_dir:                _templates
+  experimental: true
+  attributes:
+    experimental: true
+    source-highlighter: pygments
+    hardbreaks:   true
+    pygments-css: style
+    # gems/gems/asciidoctor-2.0.18/data/locale/attributes-ja.adoc
+    # Japanese translation, courtesy of Takayuki Konishi <seannos.takayuki@gmail.com>
+    appendix-caption: 付録
+    appendix-refsig: {appendix-caption}
+    # :chapter-signifier: ???
+    # :chapter-refsig: {chapter-signifier}
+    figure-caption: 図
+    last-update-label: 最終更新
+    ifdef::listing-caption[:listing-caption: リスト]
+    ifdef::manname-title[:manname-title: 名前]
+    # :part-signifier: ???
+    # :part-refsig: {part-signifier}
+    ifdef::preface-title[:preface-title: まえがき]
+    # :section-refsig: ???
+    table-caption: 表
+    toc-title: 目次
+    untitled-label: 無題
+    version-label: バージョン
+    # ⚠★💬📝
+    warning-caption:   "!!"
+    caution-caption:   "！"
+    important-caption: "★"
+    note-caption:      "＊"
+    example-caption:   "⛤"
+    tip-caption:       "🗨️"
+
+
+
+
+toc:
+    min_level: 1
+    max_level: 2
+
+#   ordered_list: false
+#   no_toc_section_class: no_toc_section
+#   list_id: toc
+#   list_class: section-nav
+#   sublist_class: ''
+#   item_class: toc-entry
+#   item_prefix: toc-

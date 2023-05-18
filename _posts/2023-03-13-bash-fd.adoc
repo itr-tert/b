@@ -1,0 +1,530 @@
+---
+layout: post
+date: 2023-03-13
+modified_date: 2023-05-19
+toc_min: 1
+toc_max: 2
+---
+
+:source-highlighter:
+:end-pipe-url: 2023-05-19-fifo.html#end-pipe
+
+= bashのFD(file descriptor)操作について
+
+## 前置き
+ここが分かりやすい。
+
+> Author: @ueokande
+> Title: シェルとファイルデスクリプタのお話
+> Date: 2016年12月01日
+> https://qiita.com/ueokande/items/c75de7c9df2bcceda7a9
+
+リンク先文書や他文書を読んでも分からない人をターゲットに、各操作の分類と誤認識の修正を焦点に書く。
+冗長なので斜め読み推奨。
+
+CAUTION: この文書の説明は​`bash`​を対象にした説明であることに注意。
+他のシェルではしばしば上手く動かない。
+
+## よく使われる例 `>`
+
+`>`(less-than sign)による​`Redirecting Output`
+
+```sh
+echo ok > result.txt
+```
+`result.txt`​には​`"ok"`​が入る。
+
+### リダイレクト操作配置の自由度
+
+以下はどれも同じ意味である。
+
+```sh
+echo ok >result.txt
+```
+```sh
+echo > result.txt ok
+```
+```sh
+> result.txt echo ok
+```
+```sh
+echo ok 1> result.txt
+```
+```sh
+echo 1>result.txt ok
+```
+など
+
+## よく使われる例 `&>`
+
+.`&>`: Redirecting Standard Output and Standard Error
+`FD1`​と​`FD2`​の内容を合わせて右辺の​`file`​へ書き込む。
+右辺に​`FD`​を示す数値は指定出来ない。
+右辺に数字を指定しても、それは​`filepath`​として扱われる。
+左辺パラメーターはない。
+
+NOTE: `&`​は​`>`​に付くオプションスイッチではない。
+`&>`​でひとつの​`Operator`​。
+
+---
+
+### リダイレクト操作配置の自由度
+
+以下はどれも同じ意味。
+```sh
+echo ok &> filepath
+```
+```sh
+&> filepath echo ok
+```
+```sh
+echo ok > filepath 2>&1
+```
+```sh
+echo ok > filepath 2>& 1
+```
+```sh
+1> filepath echo ok 2>& 1
+```
+など
+
+## `&`​の用例
+`&>`^(一括書き込み)^, `&>>`^(一括追記)^, `|&`^(一括パイプ)^​の3つでは、`&`​は​`FD1`​と​`FD2`​の内容を合わせて扱うという意味を表現している。
+`>&`^(書き込みFD複製)^​と​`<&`^(読み込みFD複製)^​では、右辺が​`file descriptor`​であるという意味を表現している(しかし例外あり。次項へ)。
+
+## `>&`​の曖昧動作
+`>&`​^(右&;書き込みFD複製)^は、右辺が数値ではない場合に限って​`&>`^(左&;一括書き込み)^​と同じ意味を持つ。
+右辺が数値の場合は​`file descriptor`​操作として解釈される。
+
+`FD1`^(stdout)^​と​`FD2`^(stderr)^​を合わせて書き込む時は​`&>`^(左&)^​が推奨。
+`file descriptor`​の複製の場合は​`>&`^(右&)^​が推奨
+
+## Redirection Operators の名前
+
+ここまでで説明しようとしてきたこと、また、以下のようなbash表現を​`Redirection Operator`​と呼ぶ。
+一つ一つの​`Operator`​には動作の説明が付いているのみで​`bash`​も​`posix`​も名前を与えていない。
+
+> `Redirecting Input`​なら​`Input Redirection`​と名詞形にすればいいだけの話だが、公式名ではないため安定感がない。
+> 名前があれば調べる時に楽なのに。
+
+- `<`(greater-than sign; `Redirecting Input`)
+- `>`(less-than sign; `Redirecting Output`)
+- `&>`(ampersand, less-than sign; `Redirecting Standard Output and Standard Error`)
+- `>>`(less-than sign, less-than sign; `Appending Redirected Output`)
+- `&>>`(ampersand, less-than sign, less-than sign; `Appending Standard Output and Standard Error`)
+- `<&`(greater-than sign, ampersand; `Duplicating File Descriptors`)
+- `>&`(less-than sign, ampersand; `Duplicating File Descriptors`)
+
+これらの​`Operator`​利用時に​`'`^quote^​や​`"`^double-quote​^で囲ってはならない。
+囲った場合はコマンドに対する引数文字列として解釈される。
+
+NOTE: ヒアドキュメントも `Redirection Operator` だが、ここでは扱わない。
+いくつかの​`Operator`​も省略してあることに注意。
+
+## 右辺にファイルを指定する​`Operator`​の構文解析の特性
+
+`<`, `>`, `>>`, `&>` など。
+
+> (それぞれの)文章量の関係上 右辺、左辺の順で説明する。
+
+### `filepath`​​である右辺の表現
+`'`^quote^や​`"`^double-quote^ で囲ってもよい。
+`Operator`​と右辺の間に空白文字があってもよい。
+以下3つは等価。
+
+```sh
+echo aaa > file.txt
+```
+
+```sh
+echo aaa >'file.txt'
+```
+
+```sh
+echo aaa > "file.txt"
+```
+
+### `file descriptor`​である左辺の表現
+左辺は省略可能なため、しばしば省略形式で使われている。
+
+NOTE: ちなみに​`&>`​には左辺は存在しないし指定できない
+
+省略した場合の左辺値はそれぞれ下記。
+
+- `<`^読み込み^: `0<` ; 右辺ファイルを読み込みopenして結果を​`FD0`​に格納
+- `>`^書き込み^: `1>` ; 右辺ファイルを書き込みopenして結果を​`FD1`​に​格納
+- `>>`^追記^: `1>>` ; 右辺ファイルの追記openして結果を​`FD1`​に格納
+
+### 左辺の構文解析
+`Operator`​と左辺の間に空白文字を入れてはいけない。
+空白文字を入れると​`Operator`​の左側にあっても​`Operator`​への引数としては扱われずに、コマンドの引数として扱われる。
+以下2つは意味が違う
+```sh
+echo ok 1> filepath.txt  # `filepath.txt`の中身は`"ok"`
+```
+```sh
+echo ok 1 > filepath.txt  # `filepath.txt`の中身は`"ok 1"
+```
+
+## 左辺(と右辺)で使われている 0,1,2 という数字の意味
+
+いくつかの `Redirection Operator` の左辺や `FD操作`​の両辺に現れるこれらの数値は何か？
+これら3つの数値は `FD`^file-descriptor^​と呼ばれるもの。​ちなみに3以上の数値の数値も​`FD`​。
+0,1,2は、あらかじめ入出力ストリームが設定されているという点のみが特別。それ以外では、他の​`FD`​数値と同じように扱える。
+
+他の​`FD`(`3`​以上の数値)は初期状態では空っぽの状態にある。
+`FD`​数値の上限値は(リソース制限・調査コマンドの)​`ulimit -n`​の​`値-1`​で求められる。この値は環境によって異なる。(たぶん 255 までならどの環境でも使える)
+
+> 例: `ulimit -n` -> `1024`​ならば​`1023`​まで使うことが出来る
+
+### なぜ​`0`,`1`,`2`​だけでなく​`3`​以上が用意されているか？
+なぜなら使い途があるから。
+標準入力・標準出力・標準エラー出力の3種類だけでは表現出来ないパイプライン構造・リダイレクト構造・入出力構造を表現するために使用出来るから。
+ファイルを​`open`​した結果を格納したり、既にある​`FD`​の複製元・複製先として使う。
+
+NOTE: `<`, `>`, `>>` の左辺に来る数値はいずれも​`file descriptor`​。
+
+`0`,`1`,`2`​にはあらかじめ以下のストリームが関連付けられている。
+
+- `0`: `stdin`(標準入力)
+- `1`: `stdout`(標準出力)
+- `2`: `stderr`(標準エラー出力)
+
+(繰り返しになるが)これらの数値はマジックナンバーではない。
+`stdout`​を指す​`3`​を作れるし、​`stdin`​を指す​`100`​を作れる。
+`0`,`1`,`2`​を閉じることも出来るし、​`0`,`1`,`2`​が指す先を変えることも出来る。
+
+## よくある例 `command  1> all_log.txt  2>&1`
+標準出力と標準エラー出力の両方を同じファイルに出力したい場合の定型句。
+`cat not_found.txt  1> all_log.txt  2>&1` (［正の例］ `2>&1`​が後にある)
+なぜ
+​`cat not_found.txt  2>&1  1> all_log.txt`​ (［誤の例］ `2>&1`​が先にある)
+とは動作が違うか？
+
+### `Redirection Operator`​の評価順序
+​`Redirection Operator`​は左から右へ評価される。
+
+### 動作
+上記例で使われている2種類の​`Operator`(`>`^Output-Redirection^​と​`>&`^^​)​の動作を、​`C++`​言語風に説明すると以下の通り。
+この疑似コード説明の焦点は、​`file descriptor`​と​`stream`​の二重構造があるということ。
+
+```c++
+// [L]>filepath 形式
+// left hand side, file descriptor number
+// right hand side, filepath
+void operator >(int left_fd=1, string right_path) { 
+    // 右辺ファイルを書き込みでopenして左辺のFDに格納する。
+    BashFDs[left_fd].stream = open(right_path, WRITE | CREATE | TRUNCATE);
+}
+
+
+// [L]>&[R] 形式
+void operator >&(int left_fd=1, int right_fd) {
+    // 右辺のFDの中身を左辺のFDへ
+    BashFDs[left_fd].stream = BashFDs[right_fd].stream;
+}
+```
+
+
+なお​`FD`​の中にあるものを「ストリーム」や「ストリームハンドル」という名前で呼ぶことは一般的ではない。
+
+`FD​操作`​を理解する際は​`>`​を入出力の向きの比喩として読まない方が理解しやすい。
+`>`​はファイルを​`open`​する操作であることを理解すること。
+
+> 上記の疑似コードは​`stream`​が上書きされる時に​`close`​されることや、BashFDsの変更がコマンドライン1行で放棄されることは表現されていない。
+>
+> また、これは​`bash`​における​`file descriptor`​操作のための比喩コードである。
+> Unix系OS一般における​`file descriptor`​の比喩コードだと解釈してはいけない。
+
+### 正の例の動作; `1> all_log.txt  2>&1`
+`cat not_found.txt  1> all_log.txt  2>&1`​を​`C++`​風コードで挙動を書くと以下。
+```c++
+// ファイルを開いてストリームハンドルを FD1 に格納
+BashFDs[1].stream = open("all_log.txt", WRITE | CREATE | TRUNCATE);
+// FD2 に FD1 のストリームハンドルを複製
+BashFDs[2].stream = BashFDs[1].stream;
+// catコマンド実行
+cat(BashFDs, "not_found.txt");
+```
+
+`FD1`​の​`stream`​にも​`FD2`​の​`stream`​にも書き込みモードで開いた同じストリームが入っている。
+期待通りに、標準出力とエラー出力に出力されるはずだった内容がファイルに書き込まれる。
+
+### 誤の例の動作; `2>&1  1> all_log.txt`
+一方で​`cat not_found.txt  2>&1  1> all_log.txt`​を​`C++`​風コードで挙動を書くならば
+
+```c++
+// 初期状態では FD1 にはstdout(標準出力ストリームハンドル)が設定されいてる
+// FD2 に FD1 のストリームハンドルを複製
+BashFDs[2].stream = BashFDs[1].stream;
+// ファイルを開いてストリームハンドルを FD1 に格納
+BashFDs[1].stream = open("all_log.txt", WRITE | CREATE | TRUNCATE);
+// catコマンド実行
+cat(BashFDs, "not_found.txt");
+```
+
+`FD1`​の​`stream`​にはファイルへのストリームが入っているが、​`FD2`​には​`stdout`​が入ってしまっている。
+後者の例が必要になる場合もあるが、標準出力もエラー出力も同じファイルに書き出したいという要求には一致しない。
+
+### 二重オープン; さらに別の誤の例; `1> all_log.txt  2> all_log.txt`
+もう1例​`cat not_found.txt  1> all_log.txt  2> all_log.txt`​の場合を​`C++`​風コードで挙動を書く
+
+```c++
+BashFDs[1].stream = open("all_log.txt", WRITE | CREATE | TRUNCATE);
+BashFDs[2].stream = open("all_log.txt", WRITE | CREATE | TRUNCATE);
+// 以下省略
+```
+
+2回のopenとTRUNCATE(切り詰め)が行なわれてしまうし、2つのストリームが生成されてしまう。
+そのために、同じファイルに出力とエラーを書き込もうとしているのに、​`1`​と​`2`​はseek位置を共有しない。
+これを動作させた結果はややこしい。
+
+### `>>`^追記^, `<`^読み込み^, `<&`^FD複製^ の動作
+他の​`Redirection Operation`​を​`C++`​風コードで挙動を書くならば
+```c++
+void operator >>(int fd=1, string path) {
+    // 追記モードで右辺ファイルをopenしてストリームハンドルを格納
+    BashFDs[fd].stream = open(path, WRITE | CREATE | APPEND);
+}
+
+void operator <(int fd=0, string path) {
+    // 読み込みモードで右辺ファイルをopenしてストリームハンドルを格納
+    BashFDs[fd].stream = open(path, READ);
+}
+
+// [n]<&[m]
+void operator <&(int left_fd=0, int right_fd) {
+    // 左辺FDに右辺FDの中身を複製
+    BashFDs[left_fd].stream = BashFDs[right_fd].stream;
+}
+```
+
+`<&`^読み込みFD複製^​と​`>&`^書き込みFD複製^​は左辺省略時のデフォルト引数以外に違いはないことに注目。
+両辺を明示するならば、この二つの​`Operators`​は同じ挙動をする。
+
+## 標準入力に書き込む
+環境依存
+```console
+$ echo ok | tr -d 'o'
+k
+$ # tr によってoが消された
+
+$ # FD1にstdinを割り当ててみる
+$ echo ok 1>&0 | tr -d 'o'  
+ok
+$ # oが表示される上にパイプを回避している
+```
+
+## ファイルを開く操作と​`file descriptor操作`​の区別
+
+`<,>,&` といった文字を使った操作には大別して4種類ある。
+
+### `<`, `>`, `>>`, `<>` など
+左辺に​`FD`​数値を、右辺にファイルパスを取る表現
+*ファイルをそれぞれの条件で開き左辺の​`FD`​に割り当てる。*
+左辺を省略した場合の初期値はそれぞれ `0<`, `1>`, `1>>`, `0<>`
+
+### `<&`, `>&`
+左辺と右辺の両方に数値を取る表現(ここではこれを​`file descriptor操作`​, `FD操作`​と呼ぶ)
+`<&`, `>&` ; *右辺の​`FD`​を複製して左辺に割り当てる。*
+左辺を省略した場合の初期値はそれぞれ `0<&`, `1>&`
+
+### `&>`, `&>>`
+左辺なし、右辺にファイルパスを取る表現
+上記の組み合わせを簡単に表現するためのもの。
+
+### `<<`, `<<<`
+左辺に​`FD`​数値を、右辺以降にデータを表現するもの
+Here Document, Here String。
+説明省略。
+
+---
+
+### 区別まとめ
+
+- 左辺に​`FD`​数値を取るか、何も取らないか
+- 右辺に​`FD`​数値を取るか、ファイルパスを取るか、データを取るか
+
+
+
+## `FD`​操作の寿命
+ここまでで説明した​`FD`​操作やリダイレクト操作は、指定したコマンドに対してしか効果がない。
+以下に例を示すが、直感に反する動作はないと思う。
+
+.`FD`​操作影響は次の行のコマンドには持ち越されない
+[source,sh]
+commandA >​ result.txt
+commandB​
+# commandB の標準出力は result.txt には入らない
+
+.`;`(`semicolon`)の左側に対する操作は、右側には影響しない
+[source,sh]
+commandA > result.txt ; commandB
+# commandB の標準出力は result.txt には入らない
+
+.`|`(`vertical bar`)の左側に対する操作は、右側には影響しない
+[source,sh]
+commandA 2> error.txt | commandB
+# commandA の標準エラー出力は result.txt に入る
+# commandB の標準エラー出力は result.txt には入らない
+
+.`|`(`vertical bar`)の右側に対する操作は、左側には影響しない
+[source,sh]
+commandA | commandB 1> all.txt 2>&1
+# commandA の標準出力は commandB の入力に入る。
+# commandA の標準エラー出力は端末の標準エラー出力に出る。
+# commandB の標準出力と標準エラー出力は all.txt に入る
+
+
+
+### `exec`​を理解するための準備
+当然、ファイルを取るリダイレクト操作はファイルを​`open`​している。
+操作に応じて​`read`​か​`write`​されて、コマンドの終了後に​`close`​する。
+コマンドに直接リダイレクト操作を書く方法では、ファイルを​`close`​させない方法(ファイルを開きっぱなしにする方法)は存在しない。
+
+単純なリダイレクト操作では、いつ​`open`​されて、いつ​`close`​されるかは気にしなくてもよい。
+しかし、​`fifo`​をリダイレクトに使う際や、​`exec`​を使う際には、​`open`​と​`close`​のタイミングを知っておくと動作が予測しやすい。
+
+## `exec`​による​`file descriptor操作`​の永続化
+
+`exec`​は bash の built in command です。
+
+`exec`​自体もコマンドだが、​`exec`​の引数もコマンドであるため用語曖昧さがある。
+この項目では以降、単語「コマンド」を引数側に指定されるコマンドを指すものとしてのみ使う。
+
+`exec`​の機能は2つある。そのうちの［リダイレクト操作の永続化］が理解しにくい。
+
+
+### 機能1: 現在の​`bash`​プロセスを​`exec`​に続くコマンドで置き換える
+
+`exec`​以降にスクリプトやコマンドがあったとしても実行されない。
+
+NOTE: 試しに​`exec cat`​した後に​`Ctrl+c`​で強制終了すると、​`bash`​に戻らないことを確認できる。
+
+パイプと組み合わせた時の挙動は推測しにくいが、ここでは説明しない。
+
+末尾呼び出し最適化を想定した機能。
+以降この機能を「プロセス書き換え​`exec`​」と呼ぶ(が、もうこれ以降登場しない)。
+
+NOTE: bash の man で exec は `it replaces the shell` と説明されているため「置き換え」という語を使いたい。けれど、​`Process Substitution`(日本語訳: `プロセス置換`)と紛らわしいため、区別のために「書き換え」という語をここでは使う。
+`プロセス置換`​と​`exec`​によるプロセスの書き換えは違う機能である。
+
+NOTE: `プロセス置換`​とは例えば​`cat <(sed -e 's/a/A/' < fileB)  <(tr -d 'b' < fileD)`​のようなリダイレクト機能のこと。
+
+
+### 機能2: 現在の​`bash`​プロセス内でリダイレクト操作の永続化
+`exec`​にコマンドを指定せずにリダイレクト操作だけを指定すると、以降のコマンドにも指定したリダイレクト状態が影響するようになる。
+これをリダイレクト状態が永続化すると呼ぶ。
+(当然だが別プロセスの​`bash`​には影響しない)
+
+****
+.［コマンドを指定せずに］とは
+
+書式: `exec [-cl] [-a name] [command [arguments]]`
+
+`exec`​は左から引数を解釈していく。
+もしそれが​`-a`​の場合は、その次の引数は​`a`​に対する引数(help text上の​`name`​)として解釈する。
+それ以外の​`-`​から始まる引数は​`exec`​に対する引数として解釈する。
+存在しないオプションを指定するとエラーする。
+そうやって解釈して、​`-`​(`Hyphen`)​から始まらない引数に出会ったら、それをコマンド(help text上の​`[command ...]`)として解釈し、それ以降の引数をコマンドに対する引数​`[arguments]`​として解釈する。
+
+もし​`-`(`Hyphen`)​から始まるコマンドを指定したい場合は、​`"--"`​(`Hyphen` 2つ)​を渡して​`exec`​に対するオプションが終了したことを伝える必要がある。
+
+```
+exec -- -starts-with-hyphen-command.sh
+```
+****
+
+`Redirection Operators`^リダイレクト操作オペレーター^​は​`exec`​に対する引数としても、コマンドに対する引数としても解釈されない。
+そのため、引数との順序関係を考慮する必要はない ^(​リダイレクト操作同士の順序は前述の通りである。そちらは考慮する必要がある)^​。
+
+### リダイレクト操作永続化の用途
+
+使ったらできること。
+
+- コマンドごとに指定していたリダイレクト操作指定を減らす。
+- 間接的に指定する書き方によって、プログラミング適性を(わずかに)上げる。
+- `fifo`​を​`open`​したままにして、そこへ複数のコマンド結果を入れる。
+  * `fifo`​は書き込み側​`close`​するとそれが読み込み側に伝わるため、これを抑制するのに必要になる​^(複数の書き込み側テクニックを使うことにより、閉じないようにする方法もある)^​。
+- 書き込みリダイレクトを複雑に結合する
+  * ファイルを開く閉じるが繰り返されてもいいならば追記書き込み​`>>`​で足りる。また、単純な例ならば​`()`, `{}`​で囲えば足りる。これら以外の場合にだけ必要になる。
+- 読み込みリダイレクトを複雑に結合する。
+  * 一度開いたストリームは、seek位置を保持し続けるため、コマンドAに読ませる、その続きをコマンドBに読ませる といったことが出来る​^(どれだけのデータを読み出すかは各コマンド側が決める)^​。
+- 実行中の​`bash`​の端末・仮想端末を別のものに切り替える; あるいは複数の仮想端末を現​`bash`​につなぐ。
+​`bash`​を動作させたままに別の標準入力ストリーム・標準出力ストリーム・標準エラーストリームを​`0`, `1`, `2`​に割り当てることが出来る。
+これはつまり、別の(仮想)端末に現在の​`bash`​を移動させることが出来ることを意味する。
+
+NOTE: プログラミング言語の定番機能であるファイル入出力機能の​`open`​にあたる機能があるから、​`bash`​にもseek機能があるかと期待するが、この機能は無い。
+
+上のリストのうち​`exec`​でなければ出来ないことは、ファイルを​`open`​したままにすることと、仮想端末の変更だけ。
+
+[id=exec-redi-fifo]
+### `fifo`​との組み合わせ
+
+まずは比較のための​`非fifo`​なおかつ​`exec`​を使わない例。
+出力先が普通のファイルならば、以下2例は同じ結果になる(ファイルの中身が​`"xxxyyy"`​になる)。
+
+```sh
+# 分割の例
+echo -n xxx > dest  # 1行目
+echo -n yyy >> dest  # 2行目
+```
+
+```sh
+# 結合の例
+echo -n xxxyyy > dest
+```
+
+NOTE: `echo -n`​は末尾の改行を抑制するオプション
+
+しかし、出力先が​`fifo`​だった場合(​`dest`​が​`fifo`​だった場合)上記2例は等価ではない。
+`fifo`​の読み出し側が​`"xxx"`​が来た時点で end-of-file を理由として​`close`​が起きる。
+
+NOTE: `fifo`​の動作仕様は数行では説明できないため、​link:{end-pipe-url}[別ページの[パイプの終了に関して\]を参照のこと。]​​
+
+*`"xxxyyy"`​を​`fifo`​の読み出し側に届けたいのであれば、1行目で起きる​`close`​(書き込み側)を抑制する必要がある。*
+
+そのための方法その1は括弧​`()`​^parenthesis^​や​`{}`​^curly-brace^​で囲うこと。
+
+```sh
+# 括弧の例
+{
+  echo -n xxx
+  echo -n yyy
+} > dest
+```
+
+方法2は​`exec`​を使うこと
+
+```sh
+# execの例
+exec 1> dest  # open
+echo -n xxx
+echo -n yyy
+exec 1>&-  # close
+# after
+```
+
+方法2(`exec`​の例)の after 以降で何かコマンドを実行すると​`FD1`​が​`close`​していてどこにも繋がっていないためエラーする。
+
+```console
+$ echo zzz
+bash: echo: write error: Bad file descriptor
+```
+
+このエラーを回避するには元々の​`FD1`​を保存して、後に元に戻す必要がある。
+
+```console
+$ # execの例その2
+$ exec 10>& 1  # copy(FD10 = FD1); FD10 に FD1 の中身を保存
+$ exec 1> dest  # open
+$ echo -n xxx
+$ echo -n yyy
+$ exec 1>&10  # close(FD1); copy(FD1 = FD10)
+$ exec 10>&-  # close(FD10); してもしなくても良い
+$ echo zzz
+zzz
+```
+
+
+// (xwidget-webkit-browse-url "http://127.0.0.1:4000/note/2023-03-13-bash-fd.html")

@@ -2,33 +2,128 @@ body {
     word-break: break-word;
 }
 
-code {
-    white-space: pre-wrap;
-}
-
 .toc-entry {
     margin-top: 1ex;
     margin-bottom: 1ex;
 }
 
+p::first-letter {
+}
+
+pre, code > .highlight table td {
+    padding-left: 1ex;
+    border: 1px solid #ccc;
+    
+}
+
 /* シンタックスハイライト関係 */
 pre, code {
+    font-size: unset;
+    white-space: pre;  // pre-wrap だと行番号が崩れる
+    border-radius: 1ex;
     /* background-color: white; */
+    background-color: #21215310
 }
+
+pre.highlight {
+    margin-bottom: 0.5ex;
+    code {
+	// padding-left: 0.8ex;
+	padding-right: 0.8ex;
+    }
+}
+
+h1, h2 {
+    border-bottom: 1px solid #aab;
+}
+
+.post-content {
+    h1, h2, h3, h4, h5, h6 {
+	text-shadow: -1px -1px 0ex #ddd;
+	margin-top: 1em;
+    }
+
+    h1, h2 {
+	margin-bottom: 1ex;
+    }
+    h1 {font-size: 200%; }
+    h2 {font-size: 175%; }
+    h3 {font-size: 140%; }
+    h4 {font-size: 130%; }
+    h5 {font-size: 120%; }
+    h6 {font-size: 110%; }
+}
+
+@mixin title_template() {
+    border-top: 2px solid black;
+    border-image: linear-gradient(to right, #daf, #daf 10px, #fff0 3.1px);
+    border-image-slice: 1;
+  
+  padding-top: 0.3ex;
+  // padding-left: 1ex;
+  padding-right: 1ex;
+  // border-style: solid;
+  // border-color: #ccc;
+
+  // border-top-width: 1px;
+  // border-left-style: solid;
+  // border-left-width: 3px;
+  display: inline-block;
+  // border-radius: 1ex;
+  // text-shadow: 0px 0px 1px red;
+  font-weight: bold;
+  letter-spacing: 0.02em;
+}
+
+.listingblock > .title {
+    // 
+    // margin-bottom: 0ex;
+    // padding-left: 1ex;
+    // border-radius: 1ex;
+    // text-shadow: 1px 1px 4px #fff, 0px 0px 4px #fff;
+    // display: inline-block;
+    // border-style: solid;
+    // border-color: gray;
+    // border-width: 0px;
+    // border-bottom-width: 1px;
+    @include title_template;
+    border-bottom-width: 2px;
+}
+.paragraph > .title {
+    @include title_template;
+    font-size: 110%;
+    margin-bottom: 0.3ex;
+}
+
+.paragraph + .paragraph {
+    margin-top: 0.6em;
+}
+
+.sidebarblock {
+    margin-left: 1ex;
+}
+
+.sidebarblock > .content {
+    background: #ffe;
+    margin-top: 1ex;
+    margin-bottom: 1ex;
+    margin-left: 1ex;
+    border: 1px dashed #ddd;
+    border-left: 4px solid #f0f0f0;
+    border-radius: 1ex;
+}
+
+h1, h2, h3, h4, h5, h6, p, blockquote, pre, ul, ol, dl, figure {
+    margin-bottom: 0.5ex;
+}
+
 
 .highlight pre, .highlight pre code, .highlight pre code table {
     margin-bottom: 0px;
 }
 
-pre, code > .highlight table td {
-    padding: 0px;
-    border: none;
-}
-
-h1, h2, h3, h4, h5, h6 {
-    border-left-style: solid;
-    border-left-width: 3px;
-    padding-left: 1ex;
+ul {
+    margin-left: 1em;
 }
 
 /*
@@ -41,4 +136,32 @@ h6 { padding-left: 1ex; }
 
 blockquote {
     font-style: normal;
+}
+
+table th, table td {
+    padding-top: 0.5ex;
+    padding-bottom: 0.5ex;
+    padding-left: 1ex;
+    padding-right: 1ex;
+}
+
+table {
+    margin-bottom: 0.5em;
+    border-radius: 10px;
+}
+
+.underline {
+    // text-decoration: underline;
+    background-image: linear-gradient(transparent 80%, #bcfa89 80%);
+}
+
+hr {
+    margin-top: 1em;
+    margin-bottom: 0.5ex;
+    margin-left: 20%;
+    margin-right: 20%;
+    border: 0px none black;
+    border-top: 1px solid #ccc;
+    // border-image: linear-gradient(to right, #aac , #aac 10px, #fff0 3.1px);
+    // border-image-slice: 1;
 }

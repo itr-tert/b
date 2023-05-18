@@ -7,8 +7,8 @@
 <meta name="generator" content="Jekyll v3.9.0" />
 <meta property="og:title" content="python3 でサブモジュールも reload する" />
 <meta property="og:locale" content="en_US" />
-<meta name="description" content="結論コード: 1 2 3 import importlib import os.path import sys" />
-<meta property="og:description" content="結論コード: 1 2 3 import importlib import os.path import sys" />
+<meta name="description" content="結論コード:" />
+<meta property="og:description" content="結論コード:" />
 <link rel="canonical" href="https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html" />
 <meta property="og:url" content="https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html" />
 <meta property="og:site_name" content="メモ束" />
@@ -17,7 +17,7 @@
 <meta name="twitter:card" content="summary" />
 <meta property="twitter:title" content="python3 でサブモジュールも reload する" />
 <script type="application/ld+json">
-{"mainEntityOfPage":{"@type":"WebPage","@id":"https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html"},"@type":"BlogPosting","url":"https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html","headline":"python3 でサブモジュールも reload する","dateModified":"2022-05-17T00:00:00+09:00","datePublished":"2022-05-17T00:00:00+09:00","description":"結論コード: 1 2 3 import importlib import os.path import sys","@context":"https://schema.org"}</script>
+{"headline":"python3 でサブモジュールも reload する","dateModified":"2022-05-17T00:00:00+09:00","datePublished":"2022-05-17T00:00:00+09:00","description":"結論コード:","url":"https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html"},"@type":"BlogPosting","@context":"https://schema.org"}</script>
 <!-- End Jekyll SEO tag -->
 <link rel="stylesheet" href="/note/assets/css/styles.css"><link type="application/atom+xml" rel="alternate" href="https://itr-tert.github.io/note/feed.xml" title="メモ束" /></head>
 <body><header class="site-header" role="banner">
@@ -42,11 +42,14 @@
   <header class="post-header">
     <h1 class="post-title p-name" itemprop="name headline">python3 でサブモジュールも reload する</h1>
     <p class="post-meta">
-      <time class="dt-published" datetime="2022-05-17T00:00:00+09:00" itemprop="datePublished">2022-05-17
+      公開:<time class="dt-published" datetime="2022-05-17T00:00:00+09:00" itemprop="datePublished">2022-05-17
       </time></p>
   </header>
 
   <div class="post-content e-content" itemprop="articleBody">
+    
+    
+    <ul><li><a href="#結論コード">結論コード:</a></li><li><a href="#環境">環境:</a></li><li><a href="#なにが問題か">なにが問題か:</a></li><li><a href="#必要な-reload-実装のためのヒント">必要な reload 実装のためのヒント</a></li></ul>
     <h3 id="結論コード">結論コード:</h3>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
@@ -124,7 +127,7 @@
 </code></pre></div></div>
 
 <h3 id="なにが問題か">なにが問題か:</h3>
-<p><code class="language-plaintext highlighter-rouge">importlib.reload</code> は引数モジュールのサブモジュールをリロードしない。<br />
+<p><code class="language-plaintext highlighter-rouge">importlib.reload</code> は引数モジュールのサブモジュールをリロードしない。  <br />
 引数指定したモジュールが参照しているサブモジュールもリロードして欲しい。</p>
 
 <p>上記のコードでは引数に指定したモジュールのファイルパスを<code class="language-plaintext highlighter-rouge">.__file__</code>から得て、そのディレクトリ以下にファイルパスが属しているモジュールを <code class="language-plaintext highlighter-rouge">sys.modules</code> から削除してから、再びインポートしている。</p>
@@ -168,7 +171,7 @@ func1()
     <p><code class="language-plaintext highlighter-rouge">built-in module</code> は <code class="language-plaintext highlighter-rouge">hasattr(built_in_module1, '__file__')</code> == False</p>
   </li>
   <li>
-    <p><code class="language-plaintext highlighter-rouge">__init__.py</code> がないディレクトリ名に対するインポートは module型の namespace になる(<code class="language-plaintext highlighter-rouge">import dir_name; str(dir_name)</code> は <code class="language-plaintext highlighter-rouge">&lt;module 'dir_name' (namespace)&gt;</code>)<br />
+    <p><code class="language-plaintext highlighter-rouge">__init__.py</code> がないディレクトリ名に対するインポートは module型の namespace になる(<code class="language-plaintext highlighter-rouge">import dir_name; str(dir_name)</code> は <code class="language-plaintext highlighter-rouge">&lt;module 'dir_name' (namespace)&gt;</code>)  <br />
   <code class="language-plaintext highlighter-rouge">namespace module</code> は <code class="language-plaintext highlighter-rouge">namespace_module1.__file__ is None</code></p>
   </li>
   <li>
@@ -178,11 +181,11 @@ func1()
     <p><code class="language-plaintext highlighter-rouge">inspect.getfile(obj)</code> で <code class="language-plaintext highlighter-rouge">obj</code> が定義されたファイルが分かる。また <code class="language-plaintext highlighter-rouge">inspect.getfile</code> の定義も参照のこと。</p>
   </li>
   <li>
-    <p><code class="language-plaintext highlighter-rouge">globals()</code> はそれが書かれた場所でのグローバル変数連想配列を返す。<br />
+    <p><code class="language-plaintext highlighter-rouge">globals()</code> はそれが書かれた場所でのグローバル変数連想配列を返す。  <br />
 これの要素の書き換えは反映される。</p>
   </li>
   <li>
-    <p><code class="language-plaintext highlighter-rouge">locals()</code> はそれが書かれた場所でのローカル変数連数配列を返す。<br />
+    <p><code class="language-plaintext highlighter-rouge">locals()</code> はそれが書かれた場所でのローカル変数連数配列を返す。  <br />
 これを書き換えても反映されない。</p>
   </li>
   <li>
@@ -190,6 +193,8 @@ func1()
   </li>
 </ul>
 
+
+    
   </div><a class="u-url" href="/note/2022-05-17-python3-reload-module.html" hidden></a>
 </article>
 

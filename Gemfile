@@ -19,8 +19,15 @@ group :jekyll_plugins do
   gem "jekyll-feed", "~> 0.12"
 end
 
+# group :jekyll_plugins do
+#   gem 'jekyll-toc'
+# end
+
 group :jekyll_plugins do
-  gem 'jekyll-toc'
+  gem 'asciidoctor', '~> 2.0'
+  gem 'jekyll-asciidoc'
+  gem 'tilt'
+  gem 'pygments.rb', '~> 2.1.0'  # コードハイライト
 end
 
 # Windows and JRuby does not include zoneinfo files, so bundle the tzinfo-data gem

@@ -198,18 +198,42 @@ table td { border: 1px solid #e8e8e8; }
 
 body { word-break: break-word; }
 
-code { white-space: pre-wrap; }
-
 .toc-entry { margin-top: 1ex; margin-bottom: 1ex; }
 
+pre, code > .highlight table td { padding-left: 1ex; border: 1px solid #ccc; }
+
 /* シンタックスハイライト関係 */
-pre, code { /* background-color: white; */ }
+pre, code { font-size: unset; white-space: pre; border-radius: 1ex; /* background-color: white; */ background-color: #21215310; }
+
+pre.highlight { margin-bottom: 0.5ex; }
+pre.highlight code { padding-right: 0.8ex; }
+
+h1, h2 { border-bottom: 1px solid #aab; }
+
+.post-content h1, .post-content h2, .post-content h3, .post-content h4, .post-content h5, .post-content h6 { text-shadow: -1px -1px 0ex #ddd; margin-top: 1em; }
+.post-content h1, .post-content h2 { margin-bottom: 1ex; }
+.post-content h1 { font-size: 200%; }
+.post-content h2 { font-size: 175%; }
+.post-content h3 { font-size: 140%; }
+.post-content h4 { font-size: 130%; }
+.post-content h5 { font-size: 120%; }
+.post-content h6 { font-size: 110%; }
+
+.listingblock > .title { border-top: 2px solid black; border-image: linear-gradient(to right, #daf, #daf 10px, #fff0 3.1px); border-image-slice: 1; padding-top: 0.3ex; padding-right: 1ex; display: inline-block; font-weight: bold; letter-spacing: 0.02em; border-bottom-width: 2px; }
+
+.paragraph > .title { border-top: 2px solid black; border-image: linear-gradient(to right, #daf, #daf 10px, #fff0 3.1px); border-image-slice: 1; padding-top: 0.3ex; padding-right: 1ex; display: inline-block; font-weight: bold; letter-spacing: 0.02em; font-size: 110%; margin-bottom: 0.3ex; }
+
+.paragraph + .paragraph { margin-top: 0.6em; }
+
+.sidebarblock { margin-left: 1ex; }
+
+.sidebarblock > .content { background: #ffe; margin-top: 1ex; margin-bottom: 1ex; margin-left: 1ex; border: 1px dashed #ddd; border-left: 4px solid #f0f0f0; border-radius: 1ex; }
+
+h1, h2, h3, h4, h5, h6, p, blockquote, pre, ul, ol, dl, figure { margin-bottom: 0.5ex; }
 
 .highlight pre, .highlight pre code, .highlight pre code table { margin-bottom: 0px; }
 
-pre, code > .highlight table td { padding: 0px; border: none; }
-
-h1, h2, h3, h4, h5, h6 { border-left-style: solid; border-left-width: 3px; padding-left: 1ex; }
+ul { margin-left: 1em; }
 
 /*
 h2 { padding-left: 1.0ex; }
@@ -219,6 +243,14 @@ h5 { padding-left: 2.5ex; }
 h6 { padding-left: 1ex; }
 */
 blockquote { font-style: normal; }
+
+table th, table td { padding-top: 0.5ex; padding-bottom: 0.5ex; padding-left: 1ex; padding-right: 1ex; }
+
+table { margin-bottom: 0.5em; border-radius: 10px; }
+
+.underline { background-image: linear-gradient(transparent 80%, #bcfa89 80%); }
+
+hr { margin-top: 1em; margin-bottom: 0.5ex; margin-left: 20%; margin-right: 20%; border: 0px none black; border-top: 1px solid #ccc; }
 
 .highlight table td { padding: 5px; }
 
@@ -347,3 +379,24 @@ blockquote { font-style: normal; }
 .highlight .w { color: #bbbbbb; }
 
 .highlight { background-color: #f8f8f8; }
+
+span.icon > .fa { cursor: default; }
+
+.admonitionblock td.icon { text-align: center; width: 1.5em; font-size: 110%; }
+
+.admonitionblock.note table { #    border-left-color: blue; border-width: 2px; }
+
+.admonitionblock.caution table { #    border-left-color: orange; border-width: 2px; }
+
+.admonitionblock.tip table { #    border-left-color: rgba(155, 155, 0, 0.8); border-width: 2px; text-shadow: 1px 1px 2px #ddd; }
+
+.admonitionblock.warning table { border-color: red; border-width: 2px; }
+
+.admonitionblock.important table { border-color: black; border-width: 2px; }
+
+.admonitionblock table { border-collapse: unset; }
+.admonitionblock td { border: 0px none white; }
+
+.admonitionblock table { border-collapse: unset; }
+
+.admonitionblock { margin-left: 1em; }

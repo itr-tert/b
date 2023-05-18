@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>ffmpeg: 任意の画像加工コマンドで動画を加工する | メモ束</title>
+<meta name="generator" content="Jekyll v3.9.0" />
+<meta property="og:title" content="ffmpeg: 任意の画像加工コマンドで動画を加工する" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="-" />
+<meta property="og:description" content="-" />
+<link rel="canonical" href="https://itr-tert.github.io/note/2023-03-07-ffmpeg-custom-filter.html" />
+<meta property="og:url" content="https://itr-tert.github.io/note/2023-03-07-ffmpeg-custom-filter.html" />
+<meta property="og:site_name" content="メモ束" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2023-03-07T00:00:00+09:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="ffmpeg: 任意の画像加工コマンドで動画を加工する" />
+<script type="application/ld+json">
+{"headline":"ffmpeg: 任意の画像加工コマンドで動画を加工する","dateModified":"2023-03-07T00:00:00+09:00","datePublished":"2023-03-07T00:00:00+09:00","description":"-","url":"https://itr-tert.github.io/note/2023-03-07-ffmpeg-custom-filter.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://itr-tert.github.io/note/2023-03-07-ffmpeg-custom-filter.html"},"@type":"BlogPosting","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/note/assets/css/styles.css"><link type="application/atom+xml" rel="alternate" href="https://itr-tert.github.io/note/feed.xml" title="メモ束" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/note/">メモ束</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">ffmpeg: 任意の画像加工コマンドで動画を加工する</h1>
+    <p class="post-meta">
+      公開:<time class="dt-published" datetime="2023-03-07T00:00:00+09:00" itemprop="datePublished">2023-03-07
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    
+    
+    <ul><li><a href="#はじめに">はじめに</a></li><li><a href="#概要">概要</a></li><li><a href="#実装例">実装例</a><ul><li><a href="#notes">Notes</a></li></ul></li><li><a href="#解説">解説</a><ul><li><a href="#ffmpeg--f-rawvideo">ffmpeg -f rawvideo</a></li><li><a href="#ffmpegでfifoに出力する"><code class="language-plaintext highlighter-rouge">ffmpeg</code>で<code class="language-plaintext highlighter-rouge">fifo</code>に出力する</a></li><li><a href="#ffmpegでfifoや標準入力から入力する"><code class="language-plaintext highlighter-rouge">ffmpeg</code>で<code class="language-plaintext highlighter-rouge">fifo</code>や標準入力から入力する</a></li></ul></li></ul>
+    <hr />
+
+<ul>
+  <li>タイトル: あるいは: <code class="language-plaintext highlighter-rouge">ffmpeg</code>で大量の中間 png files を作らずに<code class="language-plaintext highlighter-rouge">imagemagick</code>などのコマンドによる静止画単位での加工をする方法。</li>
+  <li><code class="language-plaintext highlighter-rouge">ffmpeg</code>で<code class="language-plaintext highlighter-rouge">fifo</code>を入力や出力に使う場合に注意しなければならないこと。</li>
+</ul>
+
+<p>このページで説明することは</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">ffmpeg</code>で無限に入力して、無限に出力する映像を<code class="language-plaintext highlighter-rouge">imagemagick</code>などで加工する</li>
+  <li><code class="language-plaintext highlighter-rouge">ffmpeg</code>に任意のフレーム補間コマンドを噛ませる</li>
+</ul>
+
+<p>などに応用できるかも知れません。</p>
+
+<p>このページで説明する方法ではUnix互換環境を想定している。<br />
+<code class="language-plaintext highlighter-rouge">WSL</code>(Windows Subsystem for Linux)や<code class="language-plaintext highlighter-rouge">git bash</code>では、しばしば<code class="language-plaintext highlighter-rouge">fifo</code>が期待通りの動きをしなかったという噂あり。<br />
+<code class="language-plaintext highlighter-rouge">Windows</code>での動作確認はしていない。</p>
+
+<h2 id="はじめに">はじめに</h2>
+
+<p><code class="language-plaintext highlighter-rouge">ffmpeg</code>には実行時に custom video filter を追加する方法はありません(ffmpeg ver 5.1.1時点)。</p>
+<blockquote>
+  <p>コードを書いて、自分でビルドする必要あり。<br />
+<a href="https://github.com/FFmpeg/FFmpeg/blob/master/doc/writing_filters.txt">https://github.com/FFmpeg/FFmpeg/blob/master/doc/writing_filters.txt</a></p>
+</blockquote>
+
+<p><code class="language-plaintext highlighter-rouge">imagemagick</code>などのコマンドを使って動画の全フレームを加工したい場合は</p>
+
+<ul>
+  <li>全フレームを<code class="language-plaintext highlighter-rouge">png</code>に書き出す</li>
+  <li><code class="language-plaintext highlighter-rouge">png</code>を加工する</li>
+  <li><code class="language-plaintext highlighter-rouge">ffmpeg</code>で再び動画に戻す</li>
+</ul>
+
+<p>大量の一時<code class="language-plaintext highlighter-rouge">png</code>が作られることになる。<br />
+なんとなくそれがいやだから回避する。</p>
+
+<p>出来る人にとっては簡単な問題なせいか、2023-03-07時点では随時変換の実装例がない。</p>
+
+<h2 id="概要">概要</h2>
+
+<p>以下3つを並列実行する。</p>
+<ul>
+  <li>step 1:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">ffmpeg</code>で<code class="language-plaintext highlighter-rouge">input.mp4</code>を<code class="language-plaintext highlighter-rouge">rawvideo</code>として<code class="language-plaintext highlighter-rouge">fifoA</code>へ書き込み</li>
+    </ul>
+  </li>
+  <li>step 2:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">fifoA</code>を読み込みとして<code class="language-plaintext highlighter-rouge">open</code></li>
+      <li>ループ
+        <ul>
+          <li><code class="language-plaintext highlighter-rouge">ffmpeg</code>で<code class="language-plaintext highlighter-rouge">fifoA</code>から1フレーム分だけ読み取って<code class="language-plaintext highlighter-rouge">png</code>へ</li>
+          <li>もし<code class="language-plaintext highlighter-rouge">png</code>が<code class="language-plaintext highlighter-rouge">0</code>サイズなら<code class="language-plaintext highlighter-rouge">ループ終了</code></li>
+          <li><code class="language-plaintext highlighter-rouge">png</code>を加工する</li>
+          <li><code class="language-plaintext highlighter-rouge">ffmpeg</code>で<code class="language-plaintext highlighter-rouge">png</code>を<code class="language-plaintext highlighter-rouge">rawvideo</code>として<code class="language-plaintext highlighter-rouge">fifoB</code>へ書き込み</li>
+        </ul>
+      </li>
+      <li><code class="language-plaintext highlighter-rouge">fifoA</code>を<code class="language-plaintext highlighter-rouge">close</code></li>
+    </ul>
+  </li>
+  <li>step 3:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">ffmpeg</code>で<code class="language-plaintext highlighter-rouge">fifoB</code>を<code class="language-plaintext highlighter-rouge">output.mp4</code>へ</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="実装例">実装例</h2>
+
+<p>実装例を示すためのコードであるため実際に使うなら改変が必要。</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+</pre></td><td class="code"><pre><span class="c">#!/usr/bin/env bash</span>
+
+<span class="c">#</span>
+<span class="c"># bash -version: GNU bash, version 5.2.2(1)-release (x86_64-pc-linux-gnu)</span>
+<span class="c">#</span>
+<span class="c"># ffmpeg version 5.1.1-1ubuntu1 Copyright (c) 2000-2022 the FFmpeg developers</span>
+<span class="c">#</span>
+<span class="c"># convert -version: Version: ImageMagick 6.9.11-60 Q16 x86_64 2021-01-25 https://imagemagick.org</span>
+<span class="c">#</span>
+<span class="c"># mkfifo (GNU coreutils) 8.32</span>
+<span class="c"># mktemp (GNU coreutils) 8.32</span>
+<span class="c">#</span>
+
+<span class="k">function </span>main<span class="o">()</span> <span class="o">{</span>
+    <span class="c">## force_clean</span>
+
+    filter_each_frames <span class="s1">'input.mp4'</span>  <span class="s1">'output.mp4'</span>
+<span class="o">}</span>
+
+
+<span class="k">function </span>filter_image<span class="o">()</span> <span class="o">{</span>
+    <span class="nb">local </span><span class="nv">dest</span><span class="o">=</span><span class="s2">"</span><span class="si">$(</span><span class="nb">mktemp</span> <span class="nt">--suffix</span><span class="o">=</span>.ffmpeg.png<span class="si">)</span><span class="s2">"</span>
+    <span class="c"># convert command of imagemagick</span>
+    convert <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span> <span class="nt">-liquid-rescale</span> <span class="s1">'200x150!'</span>  <span class="s2">"</span><span class="k">${</span><span class="nv">dest</span><span class="k">}</span><span class="s2">"</span> <span class="o">&amp;&amp;</span>
+        <span class="nb">mv</span> <span class="s2">"</span><span class="k">${</span><span class="nv">dest</span><span class="k">}</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span>
+<span class="o">}</span>
+
+
+<span class="k">function </span>force_clean<span class="o">()</span> <span class="o">{</span>
+    ps xa | <span class="nb">grep</span> <span class="nt">-e</span> <span class="s1">' ffmpeg.*-nostdin\| cat.*ffmpeg'</span> | <span class="nb">sed</span> <span class="nt">-e</span> <span class="s1">'/ grep /d'</span>
+
+    <span class="nb">kill</span> <span class="nt">-9</span> <span class="si">$(</span>ps xa |
+                  <span class="nb">grep</span> <span class="nt">-e</span> <span class="s1">' ffmpeg.*-nostdin\| cat.*ffmpeg'</span> |
+                  <span class="nb">sed</span> <span class="nt">-e</span> <span class="s1">'/ grep /d'</span> |
+                  <span class="nb">cut</span> <span class="nt">-d</span> <span class="s1">' '</span> <span class="nt">-f</span> 1<span class="si">)</span>
+
+    <span class="nb">rm</span> <span class="nt">-rf</span> /tmp/tmp.<span class="k">*</span>.ffmpeg<span class="k">*</span>
+<span class="o">}</span>
+
+
+<span class="k">function </span>get_video_whrp<span class="o">()</span> <span class="o">{</span>
+    <span class="c"># whrp: Width, Height, (frame)Rate, Pixel-format</span>
+    
+    <span class="o">((</span><span class="nb">local</span> <span class="o">!=</span> 0<span class="o">))</span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">"local </span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="s2">width </span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="s2">height </span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="s2">r_frame_rate </span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="s2">pix_fmt </span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="s2">nb_read_frames </span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="s2">exit_code"</span>
+
+    <span class="k">if</span> <span class="o">[[</span> <span class="nv">$1</span> <span class="o">==</span> <span class="k">*</span>.png <span class="o">||</span> <span class="nv">$1</span> <span class="o">==</span> <span class="k">*</span>.jpg  <span class="o">]]</span><span class="p">;</span> <span class="k">then</span>
+        <span class="o">{</span>
+            ffprobe <span class="nt">-select_streams</span> v:0  <span class="nt">-v</span> error  <span class="nt">-show_entries</span> <span class="nv">stream</span><span class="o">=</span>width,height,pix_fmt <span class="se">\</span>
+                    <span class="nt">-of</span> <span class="nv">default</span><span class="o">=</span><span class="nv">noprint_wrappers</span><span class="o">=</span>1  <span class="nt">-i</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span>
+            <span class="nb">local </span><span class="nv">exit_code</span><span class="o">=</span><span class="nv">$?</span>
+            <span class="nb">echo </span><span class="nv">exit_code</span><span class="o">=</span><span class="k">${</span><span class="nv">exit_code</span><span class="k">}</span>
+        <span class="o">}</span> | <span class="nb">sed</span> <span class="nt">-e</span> s/^/<span class="s2">"</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="s2">"</span>/
+    <span class="k">else</span>
+        <span class="o">{</span>
+            ffprobe <span class="nt">-select_streams</span> v:0  <span class="nt">-v</span> error  <span class="nt">-count_frames</span> <span class="se">\</span>
+                    <span class="nt">-show_entries</span> <span class="nv">stream</span><span class="o">=</span>width,height,r_frame_rate,pix_fmt,nb_read_frames <span class="se">\</span>
+                    <span class="nt">-of</span> <span class="nv">default</span><span class="o">=</span><span class="nv">noprint_wrappers</span><span class="o">=</span>1 <span class="nt">-i</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span>
+            <span class="nb">local </span><span class="nv">exit_code</span><span class="o">=</span><span class="nv">$?</span>
+            <span class="nb">echo </span><span class="nv">exit_code</span><span class="o">=</span><span class="k">${</span><span class="nv">exit_code</span><span class="k">}</span>
+        <span class="o">}</span> | <span class="nb">sed</span> <span class="nt">-e</span> s/^/<span class="s2">"</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="s2">"</span>/
+    <span class="k">fi</span>
+<span class="o">}</span>
+
+
+<span class="k">function </span>make_temp_fifo<span class="o">()</span> <span class="o">{</span>
+    <span class="nb">local </span><span class="nv">temp</span><span class="o">=</span><span class="s2">"</span><span class="si">$(</span><span class="nb">mktemp</span> <span class="nt">--dry-run</span> <span class="nt">--suffix</span><span class="o">=</span>.ffmpeg<span class="si">)</span><span class="s2">"</span>
+    <span class="nb">mkfifo</span> <span class="nt">-m</span> 600  <span class="s2">"</span><span class="k">${</span><span class="nv">temp</span><span class="k">}</span><span class="s2">"</span>  <span class="o">&amp;&amp;</span>  <span class="nb">echo</span> <span class="s2">"</span><span class="k">${</span><span class="nv">temp</span><span class="k">}</span><span class="s2">"</span>
+<span class="o">}</span>
+
+
+<span class="k">function </span>filter_each_frames<span class="o">()</span> <span class="o">{</span>
+
+    <span class="nb">local </span><span class="nv">input</span><span class="o">=</span><span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span>
+    <span class="nb">local </span><span class="nv">output</span><span class="o">=</span><span class="s2">"</span><span class="nv">$2</span><span class="s2">"</span>
+    <span class="nb">local </span><span class="nv">log_isolation</span><span class="o">=</span>0  <span class="c"># switch. 0 or 1</span>
+
+    <span class="nb">source</span> &lt;<span class="o">(</span><span class="nb">local</span><span class="o">=</span>1 <span class="nv">prefix</span><span class="o">=</span><span class="s1">''</span> get_video_whrp <span class="s2">"</span><span class="k">${</span><span class="nv">input</span><span class="k">}</span><span class="s2">"</span><span class="o">)</span>
+
+    <span class="nb">echo</span> <span class="s2">"nb_read_frames[</span><span class="k">${</span><span class="nv">nb_read_frames</span><span class="k">}</span><span class="s2">] </span><span class="k">${</span><span class="nv">width</span><span class="k">}</span><span class="s2">x</span><span class="k">${</span><span class="nv">height</span><span class="k">}</span><span class="s2">"</span>
+    <span class="o">((</span><span class="nv">exit_code</span><span class="o">==</span>0<span class="o">))</span> <span class="o">||</span> <span class="k">return </span>1
+
+    <span class="nb">local </span><span class="nv">fifo_s1_to_s2</span><span class="o">=</span><span class="s2">"</span><span class="si">$(</span>make_temp_fifo<span class="si">)</span><span class="s2">"</span>
+    <span class="nb">local </span><span class="nv">fifo_s2_to_s3</span><span class="o">=</span><span class="s2">"</span><span class="si">$(</span>make_temp_fifo<span class="si">)</span><span class="s2">"</span>
+    <span class="nb">local </span><span class="nv">dest_whrp</span><span class="o">=</span><span class="s2">"</span><span class="si">$(</span>make_temp_fifo<span class="si">)</span><span class="s2">"</span>
+    <span class="nb">local </span><span class="nv">png</span><span class="o">=</span><span class="s2">"</span><span class="si">$(</span><span class="nb">mktemp</span> <span class="nt">--suffix</span><span class="o">=</span>.ffmpeg.png<span class="si">)</span><span class="s2">"</span>
+
+    <span class="c"># see bash(1)/REDIRECTION/Moving File Descriptors</span>
+    <span class="nb">exec </span>101&gt;&amp; 1  <span class="c"># FD[101]: Bypass to stdout for logging</span>
+
+    <span class="k">function </span>log_redirect<span class="o">()</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">((</span><span class="nv">log_isolation</span><span class="o">==</span>1<span class="o">))</span><span class="p">;</span> <span class="k">then
+            </span><span class="nb">local </span><span class="nv">d</span><span class="o">=</span><span class="s2">"</span><span class="si">$(</span><span class="nb">dirname</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span><span class="si">)</span><span class="s2">"</span>
+            <span class="nb">test</span> <span class="s1">'.'</span> <span class="s1">'!='</span> <span class="s2">"</span><span class="k">${</span><span class="nv">d</span><span class="k">}</span><span class="s2">"</span> <span class="o">&amp;&amp;</span> <span class="o">{</span>
+                <span class="nb">mkdir</span> <span class="nt">-p</span> <span class="s2">"</span><span class="k">${</span><span class="nv">d</span><span class="k">}</span><span class="s2">"</span>
+                <span class="nb">mkfifo</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span>
+            <span class="o">}</span> &amp;&gt; /dev/null
+
+            <span class="nb">cat</span>  &amp;&gt; <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span> <span class="p">;</span>
+
+            <span class="nb">echo </span>end <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span> 1&gt;&amp; 101
+
+            <span class="nb">rm</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span>
+        <span class="k">else
+            </span><span class="nb">cat
+        </span><span class="k">fi</span>
+    <span class="o">}</span>
+
+    <span class="k">function </span>step1<span class="o">()</span> <span class="o">{</span>
+        <span class="c"># AV_LOG_FORCE_COLOR=1</span>
+        ffmpeg  <span class="nt">-i</span> <span class="s2">"</span><span class="k">${</span><span class="nv">input</span><span class="k">}</span><span class="s2">"</span>  <span class="nt">-f</span> rawvideo  <span class="nt">-pix_fmt</span> rgba  <span class="s2">"</span><span class="k">${</span><span class="nv">fifo_s1_to_s2</span><span class="k">}</span><span class="s2">"</span>  <span class="nt">-y</span>  <span class="nt">-nostdin</span>
+
+        <span class="nb">echo </span>step1 <span class="k">done </span>1&gt;&amp; 101
+    <span class="o">}</span>
+
+    <span class="k">function </span>step2<span class="o">()</span> <span class="o">{</span>
+
+        <span class="c"># see bash(1)/REDIRECTION/Redirecting Input</span>
+        <span class="c"># see open(2)/NOTES/FIFOs: ...blocks until the other end is also opened...</span>
+        <span class="c"># Open fifo_s1_to_s2 in read mode and handle as FD 101</span>
+        <span class="nb">exec </span>110&lt; <span class="s2">"</span><span class="k">${</span><span class="nv">fifo_s1_to_s2</span><span class="k">}</span><span class="s2">"</span>
+
+        <span class="nb">local </span><span class="nv">count</span><span class="o">=</span>0
+        <span class="nb">local </span><span class="nv">first</span><span class="o">=</span>1
+
+        <span class="c"># while ((count &lt; nb_read_frames)); do</span>
+        <span class="k">while </span><span class="nb">true</span><span class="p">;</span> <span class="k">do</span>
+            <span class="o">((</span>++count<span class="o">))</span>
+
+            <span class="nb">echo</span> <span class="nt">-n</span> <span class="o">&gt;</span> <span class="s2">"</span><span class="k">${</span><span class="nv">png</span><span class="k">}</span><span class="s2">"</span>
+            <span class="c"># 0&lt;&amp;110 : Redirect ffmpeg standard input to 110(fifo_s1_to_s2).</span>
+            ffmpeg  <span class="nt">-nostdin</span>  <span class="se">\</span>
+                    <span class="nt">-f</span> rawvideo  <span class="nt">-pix_fmt</span> rgba  <span class="nt">-video_size</span> <span class="s2">"</span><span class="k">${</span><span class="nv">width</span><span class="k">}</span><span class="s2">x</span><span class="k">${</span><span class="nv">height</span><span class="k">}</span><span class="s2">"</span>  <span class="nt">-i</span> pipe:-  <span class="se">\</span>
+                    <span class="nt">-frames</span>:v 1  <span class="s2">"</span><span class="k">${</span><span class="nv">png</span><span class="k">}</span><span class="s2">"</span> <span class="nt">-y</span>  0&lt;&amp; 110 <span class="o">||</span> <span class="o">{</span>
+                <span class="nb">break</span>
+            <span class="o">}</span>
+            <span class="c"># ffmpeg does not error even if rawvideo input is 0 size.</span>
+            <span class="nb">test</span> <span class="nt">-s</span> <span class="s2">"</span><span class="k">${</span><span class="nv">png</span><span class="k">}</span><span class="s2">"</span> <span class="o">||</span> <span class="nb">break
+
+            </span>filter_image <span class="s2">"</span><span class="k">${</span><span class="nv">png</span><span class="k">}</span><span class="s2">"</span>
+
+            <span class="o">((</span>first <span class="o">!=</span> 0<span class="o">))</span> <span class="o">&amp;&amp;</span> <span class="o">{</span>
+                <span class="nv">first</span><span class="o">=</span>0
+                <span class="nb">local</span><span class="o">=</span>1 <span class="nv">prefix</span><span class="o">=</span><span class="s1">'dest_'</span> get_video_whrp <span class="s2">"</span><span class="k">${</span><span class="nv">png</span><span class="k">}</span><span class="s2">"</span>  | <span class="nb">tee</span> <span class="o">&gt;(</span><span class="nb">cat  </span>1&gt;&amp;101<span class="o">)</span> <span class="o">&gt;</span> <span class="s2">"</span><span class="k">${</span><span class="nv">dest_whrp</span><span class="k">}</span><span class="s2">"</span>
+                <span class="c"># see bash(1)/REDIRECTION/Redirecting Output</span>
+                <span class="c"># Open fifo_s3_to_s3 in write mode and handle as FD 121</span>
+                <span class="nb">exec </span>121&gt; <span class="s2">"</span><span class="k">${</span><span class="nv">fifo_s2_to_s3</span><span class="k">}</span><span class="s2">"</span>
+            <span class="o">}</span>
+
+            <span class="c"># output to 121(fifo_s2_to_s3)</span>
+            ffmpeg <span class="nt">-nostdin</span>  <span class="se">\</span>
+                   <span class="nt">-i</span> <span class="s2">"</span><span class="k">${</span><span class="nv">png</span><span class="k">}</span><span class="s2">"</span> <span class="nt">-frames</span>:v 1  <span class="se">\</span>
+                   <span class="nt">-pix_fmt</span> rgba  <span class="nt">-f</span> rawvideo  <span class="o">&gt;(</span><span class="nb">cat  </span>1&gt;&amp; 121<span class="o">)</span> <span class="nt">-y</span> <span class="o">||</span> <span class="o">{</span>
+                <span class="nb">break</span>
+            <span class="o">}</span>
+        <span class="k">done</span>
+
+        <span class="c"># see bash(1)/REDIRECTION/Duplicating File Descriptors: </span>
+        <span class="c">#       ...If word evaluates to -, file descriptor n is closed.</span>
+        <span class="c"># '&lt;&amp; -', '&gt;&amp; -' mean the same thing</span>
+        <span class="nb">exec </span>110&lt;&amp; -  <span class="c"># close fifo_s1_to_s2</span>
+        <span class="nb">exec </span>121&gt;&amp; -  <span class="c"># close fifo_s2_to_s3</span>
+
+        <span class="nb">echo </span>step2 <span class="k">done </span>1&gt;&amp; 101
+    <span class="o">}</span>
+
+    <span class="k">function </span>step3<span class="o">()</span> <span class="o">{</span>
+        <span class="nb">source</span> &lt;<span class="o">(</span><span class="nb">cat</span> <span class="s2">"</span><span class="k">${</span><span class="nv">dest_whrp</span><span class="k">}</span><span class="s2">"</span><span class="o">)</span>
+
+        ffmpeg <span class="nt">-nostdin</span> <span class="se">\</span>
+               <span class="nt">-f</span> rawvideo  <span class="nt">-pix_fmt</span> rgba  <span class="nt">-video_size</span> <span class="s2">"</span><span class="k">${</span><span class="nv">dest_width</span><span class="k">}</span><span class="s2">x</span><span class="k">${</span><span class="nv">dest_height</span><span class="k">}</span><span class="s2">"</span> <span class="se">\</span>
+               <span class="nt">-framerate</span> <span class="s2">"</span><span class="k">${</span><span class="nv">r_frame_rate</span><span class="k">}</span><span class="s2">"</span>  <span class="nt">-i</span> pipe:- <span class="se">\</span>
+               <span class="nt">-pix_fmt</span> <span class="s2">"</span><span class="k">${</span><span class="nv">pix_fmt</span><span class="k">}</span><span class="s2">"</span>  <span class="s2">"</span><span class="k">${</span><span class="nv">output</span><span class="k">}</span><span class="s2">"</span>  <span class="nt">-y</span>  0&lt; <span class="s2">"</span><span class="k">${</span><span class="nv">fifo_s2_to_s3</span><span class="k">}</span><span class="s2">"</span>
+
+        <span class="nb">echo </span>step3 <span class="k">done </span>1&gt;&amp; 101
+    <span class="o">}</span>
+
+    <span class="nb">set</span> <span class="nt">-m</span>  <span class="c"># enable job contorl</span>
+
+    step1  2&gt;&amp;1 | log_redirect fifo/fs1 &amp;
+    step2  2&gt;&amp;1 | log_redirect fifo/fs2 &amp;
+    step3  2&gt;&amp;1 | log_redirect fifo/fs3 &amp;
+
+    <span class="nb">wait
+
+    rm</span> <span class="nt">-f</span> <span class="s2">"</span><span class="k">${</span><span class="nv">fifo_s1_to_s2</span><span class="k">}</span><span class="s2">"</span>  <span class="s2">"</span><span class="k">${</span><span class="nv">fifo_s2_to_s3</span><span class="k">}</span><span class="s2">"</span>  <span class="s2">"</span><span class="k">${</span><span class="nv">dest_whrp</span><span class="k">}</span><span class="s2">"</span>  <span class="s2">"</span><span class="k">${</span><span class="nv">png</span><span class="k">}</span><span class="s2">"</span>
+<span class="o">}</span>
+
+
+main <span class="s2">"</span><span class="nv">$@</span><span class="s2">"</span>
+</pre></td></tr></tbody></table></code></pre></figure>
+
+<h3 id="notes">Notes</h3>
+<p><code class="language-plaintext highlighter-rouge">force_clean</code>は強制終了によって残ったゴミの掃除。<br />
+不本意なモノが消えたり停止したりするかも知れない。</p>
+
+<p><code class="language-plaintext highlighter-rouge">log_isolation</code>変数が<code class="language-plaintext highlighter-rouge">0</code>の場合は、全ての進捗ログが標準出力と標準エラー出力に混ざって表示される(ごちゃ混ぜに表示される)。<br />
+<code class="language-plaintext highlighter-rouge">1</code>の場合には step1,step2,step3 のログをそれぞれ<code class="language-plaintext highlighter-rouge">fifo/fs1</code>,<code class="language-plaintext highlighter-rouge">fifo/fs2</code>,<code class="language-plaintext highlighter-rouge">fifo/fs3</code>に流し込む。<br />
+別の terminal で <code class="language-plaintext highlighter-rouge">cat fifo/fs1</code>, <code class="language-plaintext highlighter-rouge">cat fifo/fs2</code>, <code class="language-plaintext highlighter-rouge">cat fifo/fs3</code>とすることでログの区別が容易になる。</p>
+
+<h2 id="解説">解説</h2>
+
+<p>上記コードは<code class="language-plaintext highlighter-rouge">bash</code>で動く<code class="language-plaintext highlighter-rouge">shell script</code>というもの。<br />
+<code class="language-plaintext highlighter-rouge">shell script</code>が何であるかはここでは説明しない。</p>
+
+<h3 id="ffmpeg--f-rawvideo">ffmpeg -f rawvideo</h3>
+<p>rawvideoフォーマットはヘッダーやメタデータを持たない形式。<br />
+<code class="language-plaintext highlighter-rouge">1 frame</code>のサイズは<code class="language-plaintext highlighter-rouge">width * height * pixel_bytes</code>固定。<br />
+<code class="language-plaintext highlighter-rouge">-pix_fmt</code>と<code class="language-plaintext highlighter-rouge">-pixel_format</code>は同義。<br />
+<code class="language-plaintext highlighter-rouge">-r</code>と<code class="language-plaintext highlighter-rouge">-framerate</code>は同義。<br />
+<code class="language-plaintext highlighter-rouge">ffmpeg</code>の入力ファイル前ならば入力ファイルの形式を指定している事になる。<br />
+入力ファイルの後ならば出力ファイルの形式を指定している事になる(これらの使用はrawvideoに限った話ではない)。<br />
+<code class="language-plaintext highlighter-rouge">-f rawvideo  -pix_fmt rgba  -video_size "400x300"  -framerate 30</code><br />
+<code class="language-plaintext highlighter-rouge">rawvideo</code>形式による書き込みには<code class="language-plaintext highlighter-rouge">seek</code>を必要としない。</p>
+
+<h3 id="ffmpegでfifoに出力する"><code class="language-plaintext highlighter-rouge">ffmpeg</code>で<code class="language-plaintext highlighter-rouge">fifo</code>に出力する</h3>
+<p>特に注意することはない。</p>
+
+<p><code class="language-plaintext highlighter-rouge">fifo</code>の取り扱いについては別ページへ:</p>
+<ul>
+  <li><a href="2023-05-19-fifo.html">FIFO Special File</a></li>
+  <li><a href="2023-03-13-bash-fd.html#exec-redi-fifo">bashのFD(file descriptor)操作について</a></li>
+</ul>
+
+<blockquote>
+  <p>余談: 一部のフォーマットは書き込み時に<code class="language-plaintext highlighter-rouge">seek</code>を必要とするため<code class="language-plaintext highlighter-rouge">fifo</code>への出力に失敗する。</p>
+</blockquote>
+
+<h3 id="ffmpegでfifoや標準入力から入力する"><code class="language-plaintext highlighter-rouge">ffmpeg</code>で<code class="language-plaintext highlighter-rouge">fifo</code>や標準入力から入力する</h3>
+<p><code class="language-plaintext highlighter-rouge">fifo</code>ファイルを指定しての入力はしばしば上手くいかない。<br />
+入力ファイルが<code class="language-plaintext highlighter-rouge">fifo</code>であるということを示す<code class="language-plaintext highlighter-rouge">fifo:</code>のようなプロトコル指定子も存在しない。<br />
+したがって、(<code class="language-plaintext highlighter-rouge">ffmpeg</code>にストリームがパイプ的性質であることを伝えるために)標準入力を利用する必要がある。</p>
+
+<p>今回のように<code class="language-plaintext highlighter-rouge">fifo</code>経由で流れてくる複数フレームのrawvideoを1フレームずつ処理する場合、<code class="language-plaintext highlighter-rouge">ffmpeg</code>との間に<code class="language-plaintext highlighter-rouge">cat</code>や<code class="language-plaintext highlighter-rouge">tee</code>や<code class="language-plaintext highlighter-rouge">dd</code>など他のコマンドを挟んではいけない。<br />
+バッファリングにより読み込み過ぎが発生した状態で<code class="language-plaintext highlighter-rouge">ffmpeg</code>が終了することにより、読み込み過ぎたまま<code class="language-plaintext highlighter-rouge">ffmpeg</code>に渡らなかった分のデータが消える。</p>
+
+<ul>
+  <li>下記2つは動作が異なる。前者では読み込み過ぎは発生しない。</li>
+  <li><code class="language-plaintext highlighter-rouge">ffmpeg -nostdin -i pipe:0 -frames:v 1 dest.mp4 &lt; fifo.rawvideo</code></li>
+  <li><code class="language-plaintext highlighter-rouge">cat fifo.rawvideo | ffmpeg -nostdin -i pipe:0 -frames:v 1 dest.mp4</code></li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">-nostdin</code>: インタラクティブコマンドを無効にするオプション。指定しなくてもいいかも？</p>
+
+
+    
+  </div><a class="u-url" href="/note/2023-03-07-ffmpeg-custom-filter.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/note/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">メモ束</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">メモ束</li><li><a class="u-email" href="mailto:itr.tert+code(@)gmail.com">itr.tert+code(@)gmail.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/itr-tert"><svg class="svg-icon"><use xlink:href="/note/assets/minima-social-icons.svg#github"></use></svg> <span class="username">itr-tert</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>-</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

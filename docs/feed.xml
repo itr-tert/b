@@ -1,4 +1,1601 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="https://itr-tert.github.io/note/feed.xml" rel="self" type="application/atom+xml" /><link href="https://itr-tert.github.io/note/" rel="alternate" type="text/html" /><updated>2022-05-18T01:47:08+09:00</updated><id>https://itr-tert.github.io/note/feed.xml</id><title type="html">メモ束</title><subtitle>-</subtitle><entry><title type="html">python3 でサブモジュールも reload する</title><link href="https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html" rel="alternate" type="text/html" title="python3 でサブモジュールも reload する" /><published>2022-05-17T00:00:00+09:00</published><updated>2022-05-17T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/python3-reload-module</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html">&lt;h3 id=&quot;結論コード&quot;&gt;結論コード:&lt;/h3&gt;
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="https://itr-tert.github.io/note/feed.xml" rel="self" type="application/atom+xml" /><link href="https://itr-tert.github.io/note/" rel="alternate" type="text/html" /><updated>2023-05-19T08:56:55+09:00</updated><id>https://itr-tert.github.io/note/feed.xml</id><title type="html">メモ束</title><subtitle>-</subtitle><entry><title type="html">FIFO Special File</title><link href="https://itr-tert.github.io/note/2023-05-19-fifo.html" rel="alternate" type="text/html" title="FIFO Special File" /><published>2023-05-19T00:00:00+09:00</published><updated>2023-05-19T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/fifo</id><content type="html" xml:base="https://itr-tert.github.io/note/2023-05-19-fifo.html">&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;前置き&quot;&gt;前置き&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;元々は​&lt;a href=&quot;2023-03-07-ffmpeg-custom-filter.html&quot;&gt;[ffmpeg: 任意の画像加工コマンドで動画を加工する&lt;/a&gt;]​内の文書だったが、長くなったので分けたもの。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;基本動作&quot;&gt;基本動作&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;データが first-in first-out する特殊ファイル, &lt;code&gt;named pipe&lt;/code&gt;​とも呼ばれる。以降​&lt;code&gt;fifo&lt;/code&gt;​と表記。&lt;br&gt;
+&lt;code&gt;cat example.txt | more&lt;/code&gt;​の​&lt;code&gt;|&lt;/code&gt;&lt;sup&gt;vertical-line&lt;/sup&gt;​によるパイプよりも複雑なことをするための道具の一つ。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;quoteblock&quot;&gt;
+&lt;blockquote&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;fifo(7)&lt;br&gt;
+bash(1)/SHELL GRAMMAR/pipeline&lt;br&gt;
+open(2)/NOTES/FIFOs&lt;/p&gt;
+&lt;/div&gt;
+&lt;/blockquote&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;fifo&lt;/code&gt;​に対して書き込み側が​&lt;code&gt;&quot;abc&amp;#8230;&amp;#8203;&quot;&lt;/code&gt;​と書き込むと、読み込み側に​&lt;code&gt;&quot;abc&amp;#8230;&amp;#8203;&quot;&lt;/code&gt;​と出て来るイメージ。&lt;br&gt;
+だからパイプと比喩される。しかし、​&lt;code&gt;fifo&lt;/code&gt;​はパイプそのものではない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;上記動作をするものがパイプ。&lt;br&gt;
+一方でパイプ関係を成立させるためのパスが​&lt;code&gt;fifoファイル&lt;/code&gt;​。&lt;br&gt;
+&lt;code&gt;fifoファイル&lt;/code&gt;​自体はすなわちでパイプではない。後述のパイプの終了に関する仕様が理由。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;fifoファイル&lt;/code&gt;​はファイルシステム上にパスを持つが、データがストレージに保存されるわけではない。&lt;br&gt;
+見掛け上のファイルサイズは常に​&lt;code&gt;0 Byte&lt;/code&gt;。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;利用する上で注意しなければいけないことはブロッキングとパイプの終了。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;ブロッキング&quot;&gt;ブロッキング&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;fifo&lt;/code&gt;​では読み込み側と書き込み側の両方が​&lt;code&gt;open&lt;/code&gt;​操作をするまで、つまり両者が揃うまで、それぞれの​&lt;code&gt;open&lt;/code&gt;​は終わらない。&lt;br&gt;
+このことを指して「(条件が揃うまで)ブロックされる」や「(条件が揃うまで)制御は戻らない」などと呼ぶ。&lt;br&gt;
+ブロッキングは​&lt;code&gt;bash&lt;/code&gt;​で​&lt;code&gt;fifo&lt;/code&gt;​を扱う場合にも関係する。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;次の​&lt;code&gt;bash&lt;/code&gt;​表現はブロッキングが起きる可能性がある。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;exec&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;110&lt;/span&gt;&amp;lt; &lt;span style=&quot;color: #BA2121&quot;&gt;&amp;quot;fifoA&amp;quot;&lt;/span&gt;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# fifoA​をread-modeでopenして、110番のfile descriptorで管理するという意味&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;open&lt;/code&gt;​の操作がある。そのため、別のプロセスがパイプのもう一方として​&lt;code&gt;&quot;fifoA&quot;&lt;/code&gt;​を​&lt;code&gt;write-mode&lt;/code&gt;​で​&lt;code&gt;open&lt;/code&gt;​するまで上記​&lt;code&gt;exec&lt;/code&gt;​は終わらない(制御は戻らない)。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;bash&lt;/code&gt;​のリダイレクト操作構文については別ページ​&lt;a href=&quot;2023-03-13-bash-fd.html&quot;&gt;[bashのFD(file descriptor)操作について&lt;/a&gt;]​​へ。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;quoteblock&quot;&gt;
+&lt;blockquote&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;このブロッキングには例外(それと少し予測しにくい挙動)がある&lt;br&gt;
+&lt;code&gt;O_NONBLOCK&lt;/code&gt;​を指定して​&lt;code&gt;open&lt;/code&gt;​した場合はブロックされない。。&lt;br&gt;
+&lt;code&gt;rw-mode&lt;/code&gt;(read and write mode)での​&lt;code&gt;open&lt;/code&gt;​の際はブロックされない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;bash&lt;/code&gt;​では​&lt;code&gt;O_NONBLOCK&lt;/code&gt;​指定はできないため、関係がない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;bash&lt;/code&gt;​では​&lt;code&gt;&amp;lt;&amp;gt;&lt;/code&gt;&lt;sup&gt;less-than-sign,greater-than-sign&lt;/sup&gt;​で​&lt;code&gt;rw-mode&lt;/code&gt;​による​&lt;code&gt;open&lt;/code&gt;​が​出来る。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/blockquote&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;パイプの終了&quot;&gt;パイプの終了&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;読み込み側が​&lt;code&gt;close&lt;/code&gt;​した時点で、書き込み側の​&lt;code&gt;write&lt;/code&gt;​は失敗するようになる。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;書き込み側が​&lt;code&gt;close&lt;/code&gt;​して、なおかつ読み込み側が残り全てを​&lt;code&gt;read&lt;/code&gt;​したら​&lt;code&gt;EOF&lt;/code&gt;&lt;sup&gt;end-of-file&lt;/sup&gt;​により終了する。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;一度​&lt;code&gt;close&lt;/code&gt;​して、再び​同じ​&lt;code&gt;fifoファイル&lt;/code&gt;​を開いても同じパイプには繋がらないため、読み込み側は続きのデータが欲しい間は​&lt;code&gt;close&lt;/code&gt;​してはいけない。&lt;br&gt;
+(この説明は正確ではない。​&lt;code&gt;再open&lt;/code&gt;​でも同じパイプから続きのデータを読める状況は存在する。下記参照)&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;end-pipe&quot;&gt;余談, パイプの終了, 複数の書き込み側, 複数の読み込み側&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;別ページ &lt;a href=&quot;2023-03-07-ffmpeg-custom-filter.html&quot;&gt;[ffmpeg: 任意の画像加工コマンドで動画を加工する&lt;/a&gt;] の余談と、複数の書き込み側と複数の読み込み側がある場合の​&lt;code&gt;fifo-pipe&lt;/code&gt;​の挙動の説明をする。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;exec 121&amp;gt; &quot;${fifo_s2_to_s3}&quot;&lt;/code&gt;​など、リンク先の実装例ではブロッキングを考慮したために書き方が複雑化した。​&lt;code&gt;&amp;lt;&amp;gt;&lt;/code&gt;​を使えばシンプルに表現出来たかも知れない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;さらに言えば​&lt;code&gt;fifo&lt;/code&gt;​は​&lt;code&gt;複数の書き込み側&lt;/code&gt;​と​&lt;code&gt;複数の読み込み側&lt;/code&gt;​という組み合わせをサポートしている。&lt;br&gt;
+この仕様を使った場合も、コードがシンプルになったかも知れない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;複数の書き込み側&quot;&gt;複数の書き込み側&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;複数の書き込み側&lt;/code&gt;​によって並列して書き込まれたデータは直列に並び変えられて読み込み側に届く。&lt;br&gt;
+この挙動は通常ファイルに並列に書き込んだ際の結果と異なる。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sidebarblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;［複数の書き込み側の動作例］&lt;/div&gt;
+&lt;p&gt;&lt;code&gt;writer1&lt;/code&gt;​が​&lt;code&gt;&quot;abcd&quot;&lt;/code&gt;​、​&lt;code&gt;writer2&lt;/code&gt;​が​&lt;code&gt;&quot;123&quot;&lt;/code&gt;​を同時並列に書き込んだとする。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;通常ファイル&lt;/code&gt;​が書き込み先の場合、結果は​&lt;code&gt;&quot;abcd&quot;&lt;/code&gt;​や​&lt;code&gt;&quot;123&quot;&lt;/code&gt;​あるいはややこしく​&lt;code&gt;&quot;123d&quot;&lt;/code&gt;, &lt;code&gt;&quot;1b3d&quot;&lt;/code&gt;​などの​&lt;strong&gt;切り詰め&lt;/strong&gt;​られて​&lt;strong&gt;上書き&lt;/strong&gt;​された結果の組み合わせである。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;fifoファイル&lt;/code&gt;​が書き込み先の場合、結果は​&lt;code&gt;&quot;abcd123&quot;&lt;/code&gt;​や​&lt;code&gt;&quot;123abcd&quot;&lt;/code&gt;​あるいはややこしく​&lt;code&gt;&quot;a12bc3d&quot;&lt;/code&gt;​など​&lt;strong&gt;直列に並べ&lt;/strong&gt;​られた組み合わせである。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;(&lt;code&gt;1byte&lt;/code&gt;​単位でデータが混ざる実行環境は普通はない。書き込み単位、バッファーサイズ、改行などの区切り文字の単位で混ざる)&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;複数の読み込み側&quot;&gt;複数の読み込み側&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;複数の読み込み側&lt;/code&gt;​がある場合にそれぞれの読み込み側に来るデータはどうなっているか？&lt;br&gt;
+想定できる次の二つの動作のうち、正解は後者である。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;ulist&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;[誤]: 全ての読み込み側に同じデータが来る&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;[正]: 製造ライン作業のように手が空いた読み込み側が先頭から取っていく。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;読み込み側も書き込み側と同じ様に直列に読み込んでいく仕様である。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;複数の読み書きがある際のパイプの終了&quot;&gt;複数の読み書きがある際のパイプの終了&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;挙動を予測しにくいのがパイプの終了に関するこの仕様。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;一つ以上の書き込み側が​&lt;code&gt;open&lt;/code&gt;​中ならば書き込みは継続しているとパイプに見なされる。&lt;br&gt;
+一つ以上の読み込み側が​&lt;code&gt;open&lt;/code&gt;​中ならば読み込みは継続しているとパイプに見なされる。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;つまり、書き込み側も読み込み側も同役割の​&lt;code&gt;file descriptor&lt;/code&gt;​が一つ以上存在してさえいれば、一旦​&lt;code&gt;close&lt;/code&gt;​してから再び​&lt;code&gt;open&lt;/code&gt;​しても、同じパイプに対して書き込みや読み込みを再開することが出来る。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;このパイプの終了を回避出来る仕様を使えば​&lt;code&gt;bash&lt;/code&gt;​の並列実行で​&lt;code&gt;fifo&lt;/code&gt;​を​&lt;code&gt;open&lt;/code&gt;​だけして​&lt;code&gt;1byte&lt;/code&gt;​も読み込まない、読み込み意思表示キーパーを置いておけば、​&lt;a href=&quot;2023-03-07-ffmpeg-custom-filter.html&quot;&gt;[ffmpeg: 任意の画像加工コマンドで動画を加工する&lt;/a&gt;]​で​&lt;code&gt;FD操作&lt;/code&gt;​なしで書けたかも知れない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;その場合はきっと、いささか乱暴なジョブコントロールが必要になっただろうが。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;</content><author><name></name></author></entry><entry><title type="html">bashのFD(file descriptor)操作について</title><link href="https://itr-tert.github.io/note/2023-03-13-bash-fd.html" rel="alternate" type="text/html" title="bashのFD(file descriptor)操作について" /><published>2023-03-13T00:00:00+09:00</published><updated>2023-03-13T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/bash-fd</id><content type="html" xml:base="https://itr-tert.github.io/note/2023-03-13-bash-fd.html">&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;前置き&quot;&gt;前置き&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;ここが分かりやすい。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;quoteblock&quot;&gt;
+&lt;blockquote&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;Author: @ueokande&lt;br&gt;
+Title: シェルとファイルデスクリプタのお話&lt;br&gt;
+Date: 2016年12月01日&lt;br&gt;
+&lt;a href=&quot;https://qiita.com/ueokande/items/c75de7c9df2bcceda7a9&quot; class=&quot;bare&quot;&gt;https://qiita.com/ueokande/items/c75de7c9df2bcceda7a9&lt;/a&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;/blockquote&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;リンク先文書や他文書を読んでも分からない人をターゲットに、各操作の分類と誤認識の修正を焦点に書く。&lt;br&gt;
+冗長なので斜め読み推奨。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock caution&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;！&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+この文書の説明は​&lt;code&gt;bash&lt;/code&gt;​を対象にした説明であることに注意。&lt;br&gt;
+他のシェルではしばしば上手く動かない。
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;よく使われる例&quot;&gt;よく使われる例 &lt;code&gt;&amp;gt;&lt;/code&gt;&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;&amp;gt;&lt;/code&gt;(less-than sign)による​&lt;code&gt;Redirecting Output&lt;/code&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok &amp;gt; result.txt&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;result.txt&lt;/code&gt;​には​&lt;code&gt;&quot;ok&quot;&lt;/code&gt;​が入る。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;リダイレクト操作配置の自由度&quot;&gt;リダイレクト操作配置の自由度&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;以下はどれも同じ意味である。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok &amp;gt;result.txt&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; &amp;gt; result.txt ok&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; result.txt &lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&amp;gt; result.txt&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&amp;gt;result.txt ok&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;など&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;よく使われる例-2&quot;&gt;よく使われる例 &lt;code&gt;&amp;amp;&amp;gt;&lt;/code&gt;&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;&lt;code&gt;&amp;amp;&amp;gt;&lt;/code&gt;: Redirecting Standard Output and Standard Error&lt;/div&gt;
+&lt;p&gt;&lt;code&gt;FD1&lt;/code&gt;​と​&lt;code&gt;FD2&lt;/code&gt;​の内容を合わせて右辺の​&lt;code&gt;file&lt;/code&gt;​へ書き込む。&lt;br&gt;
+右辺に​&lt;code&gt;FD&lt;/code&gt;​を示す数値は指定出来ない。&lt;br&gt;
+右辺に数字を指定しても、それは​&lt;code&gt;filepath&lt;/code&gt;​として扱われる。&lt;br&gt;
+左辺パラメーターはない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock note&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;＊&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+&lt;code&gt;&amp;amp;&lt;/code&gt;​は​&lt;code&gt;&amp;gt;&lt;/code&gt;​に付くオプションスイッチではない。&lt;br&gt;
+&lt;code&gt;&amp;amp;&amp;gt;&lt;/code&gt;​でひとつの​&lt;code&gt;Operator&lt;/code&gt;​。
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;hr&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;リダイレクト操作配置の自由度-2&quot;&gt;リダイレクト操作配置の自由度&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;以下はどれも同じ意味。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok &amp;amp;&amp;gt; filepath&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;&amp;gt; filepath &lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok &amp;gt; filepath &lt;span style=&quot;color: #666666&quot;&gt;2&lt;/span&gt;&amp;gt;&amp;amp;&lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok &amp;gt; filepath &lt;span style=&quot;color: #666666&quot;&gt;2&lt;/span&gt;&amp;gt;&amp;amp; &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&amp;gt; filepath &lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok &lt;span style=&quot;color: #666666&quot;&gt;2&lt;/span&gt;&amp;gt;&amp;amp; &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;など&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;の用例&quot;&gt;&lt;code&gt;&amp;amp;&lt;/code&gt;​の用例&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;&amp;amp;&amp;gt;&lt;/code&gt;&lt;sup&gt;(一括書き込み)&lt;/sup&gt;, &lt;code&gt;&amp;amp;&amp;gt;&amp;gt;&lt;/code&gt;&lt;sup&gt;(一括追記)&lt;/sup&gt;, &lt;code&gt;|&amp;amp;&lt;/code&gt;&lt;sup&gt;(一括パイプ)&lt;/sup&gt;​の3つでは、&lt;code&gt;&amp;amp;&lt;/code&gt;​は​&lt;code&gt;FD1&lt;/code&gt;​と​&lt;code&gt;FD2&lt;/code&gt;​の内容を合わせて扱うという意味を表現している。&lt;br&gt;
+&lt;code&gt;&amp;gt;&amp;amp;&lt;/code&gt;&lt;sup&gt;(書き込みFD複製)&lt;/sup&gt;​と​&lt;code&gt;&amp;lt;&amp;amp;&lt;/code&gt;&lt;sup&gt;(読み込みFD複製)&lt;/sup&gt;​では、右辺が​&lt;code&gt;file descriptor&lt;/code&gt;​であるという意味を表現している(しかし例外あり。次項へ)。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;の曖昧動作&quot;&gt;&lt;code&gt;&amp;gt;&amp;amp;&lt;/code&gt;​の曖昧動作&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;&amp;gt;&amp;amp;&lt;/code&gt;​&lt;sup&gt;(右&amp;amp;;書き込みFD複製)&lt;/sup&gt;は、右辺が数値ではない場合に限って​&lt;code&gt;&amp;amp;&amp;gt;&lt;/code&gt;&lt;sup&gt;(左&amp;amp;;一括書き込み)&lt;/sup&gt;​と同じ意味を持つ。&lt;br&gt;
+右辺が数値の場合は​&lt;code&gt;file descriptor&lt;/code&gt;​操作として解釈される。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;FD1&lt;/code&gt;&lt;sup&gt;(stdout)&lt;/sup&gt;​と​&lt;code&gt;FD2&lt;/code&gt;&lt;sup&gt;(stderr)&lt;/sup&gt;​を合わせて書き込む時は​&lt;code&gt;&amp;amp;&amp;gt;&lt;/code&gt;&lt;sup&gt;(左&amp;amp;)&lt;/sup&gt;​が推奨。&lt;br&gt;
+&lt;code&gt;file descriptor&lt;/code&gt;​の複製の場合は​&lt;code&gt;&amp;gt;&amp;amp;&lt;/code&gt;&lt;sup&gt;(右&amp;amp;)&lt;/sup&gt;​が推奨&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;redirection-operators-の名前&quot;&gt;Redirection Operators の名前&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;ここまでで説明しようとしてきたこと、また、以下のようなbash表現を​&lt;code&gt;Redirection Operator&lt;/code&gt;​と呼ぶ。&lt;br&gt;
+一つ一つの​&lt;code&gt;Operator&lt;/code&gt;​には動作の説明が付いているのみで​&lt;code&gt;bash&lt;/code&gt;​も​&lt;code&gt;posix&lt;/code&gt;​も名前を与えていない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;quoteblock&quot;&gt;
+&lt;blockquote&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;Redirecting Input&lt;/code&gt;​なら​&lt;code&gt;Input Redirection&lt;/code&gt;​と名詞形にすればいいだけの話だが、公式名ではないため安定感がない。&lt;br&gt;
+名前があれば調べる時に楽なのに。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/blockquote&gt;
+&lt;/div&gt;
+&lt;div class=&quot;ulist&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;&amp;lt;&lt;/code&gt;(greater-than sign; &lt;code&gt;Redirecting Input&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;&amp;gt;&lt;/code&gt;(less-than sign; &lt;code&gt;Redirecting Output&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;&amp;amp;&amp;gt;&lt;/code&gt;(ampersand, less-than sign; &lt;code&gt;Redirecting Standard Output and Standard Error&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;&amp;gt;&amp;gt;&lt;/code&gt;(less-than sign, less-than sign; &lt;code&gt;Appending Redirected Output&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;&amp;amp;&amp;gt;&amp;gt;&lt;/code&gt;(ampersand, less-than sign, less-than sign; &lt;code&gt;Appending Standard Output and Standard Error&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;&amp;lt;&amp;amp;&lt;/code&gt;(greater-than sign, ampersand; &lt;code&gt;Duplicating File Descriptors&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;&amp;gt;&amp;amp;&lt;/code&gt;(less-than sign, ampersand; &lt;code&gt;Duplicating File Descriptors&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;これらの​&lt;code&gt;Operator&lt;/code&gt;​利用時に​&lt;code&gt;'&lt;/code&gt;&lt;sup&gt;quote&lt;/sup&gt;​や​&lt;code&gt;&quot;&lt;/code&gt;&lt;sup&gt;double-quote​&lt;/sup&gt;で囲ってはならない。&lt;br&gt;
+囲った場合はコマンドに対する引数文字列として解釈される。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock note&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;＊&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+ヒアドキュメントも &lt;code&gt;Redirection Operator&lt;/code&gt; だが、ここでは扱わない。&lt;br&gt;
+いくつかの​&lt;code&gt;Operator&lt;/code&gt;​も省略してあることに注意。
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;右辺にファイルを指定するoperatorの構文解析の特性&quot;&gt;右辺にファイルを指定する​&lt;code&gt;Operator&lt;/code&gt;​の構文解析の特性&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;&amp;lt;&lt;/code&gt;, &lt;code&gt;&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;gt;&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;amp;&amp;gt;&lt;/code&gt; など。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;quoteblock&quot;&gt;
+&lt;blockquote&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;(それぞれの)文章量の関係上 右辺、左辺の順で説明する。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/blockquote&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;filepathである右辺の表現&quot;&gt;&lt;code&gt;filepath&lt;/code&gt;​​である右辺の表現&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;'&lt;/code&gt;&lt;sup&gt;quote&lt;/sup&gt;や​&lt;code&gt;&quot;&lt;/code&gt;&lt;sup&gt;double-quote&lt;/sup&gt; で囲ってもよい。&lt;br&gt;
+&lt;code&gt;Operator&lt;/code&gt;​と右辺の間に空白文字があってもよい。&lt;br&gt;
+以下3つは等価。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; aaa &amp;gt; file.txt&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; aaa &amp;gt;&lt;span style=&quot;color: #BA2121&quot;&gt;&amp;#39;file.txt&amp;#39;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; aaa &amp;gt; &lt;span style=&quot;color: #BA2121&quot;&gt;&amp;quot;file.txt&amp;quot;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;file-descriptorである左辺の表現&quot;&gt;&lt;code&gt;file descriptor&lt;/code&gt;​である左辺の表現&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;左辺は省略可能なため、しばしば省略形式で使われている。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock note&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;＊&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+ちなみに​&lt;code&gt;&amp;amp;&amp;gt;&lt;/code&gt;​には左辺は存在しないし指定できない
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;省略した場合の左辺値はそれぞれ下記。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;ulist&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;&amp;lt;&lt;/code&gt;&lt;sup&gt;読み込み&lt;/sup&gt;: &lt;code&gt;0&amp;lt;&lt;/code&gt; ; 右辺ファイルを読み込みopenして結果を​&lt;code&gt;FD0&lt;/code&gt;​に格納&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;&amp;gt;&lt;/code&gt;&lt;sup&gt;書き込み&lt;/sup&gt;: &lt;code&gt;1&amp;gt;&lt;/code&gt; ; 右辺ファイルを書き込みopenして結果を​&lt;code&gt;FD1&lt;/code&gt;​に​格納&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;&amp;gt;&amp;gt;&lt;/code&gt;&lt;sup&gt;追記&lt;/sup&gt;: &lt;code&gt;1&amp;gt;&amp;gt;&lt;/code&gt; ; 右辺ファイルの追記openして結果を​&lt;code&gt;FD1&lt;/code&gt;​に格納&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;左辺の構文解析&quot;&gt;左辺の構文解析&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;Operator&lt;/code&gt;​と左辺の間に空白文字を入れてはいけない。&lt;br&gt;
+空白文字を入れると​&lt;code&gt;Operator&lt;/code&gt;​の左側にあっても​&lt;code&gt;Operator&lt;/code&gt;​への引数としては扱われずに、コマンドの引数として扱われる。&lt;br&gt;
+以下2つは意味が違う&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&amp;gt; filepath.txt  &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# `filepath.txt`の中身は`&amp;quot;ok&amp;quot;`&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt; &amp;gt; filepath.txt  &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# `filepath.txt`の中身は`&amp;quot;ok 1&amp;quot;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;左辺と右辺で使われている-012-という数字の意味&quot;&gt;左辺(と右辺)で使われている 0,1,2 という数字の意味&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;いくつかの &lt;code&gt;Redirection Operator&lt;/code&gt; の左辺や &lt;code&gt;FD操作&lt;/code&gt;​の両辺に現れるこれらの数値は何か？&lt;br&gt;
+これら3つの数値は &lt;code&gt;FD&lt;/code&gt;&lt;sup&gt;file-descriptor&lt;/sup&gt;​と呼ばれるもの。​ちなみに3以上の数値の数値も​&lt;code&gt;FD&lt;/code&gt;​。&lt;br&gt;
+0,1,2は、あらかじめ入出力ストリームが設定されているという点のみが特別。それ以外では、他の​&lt;code&gt;FD&lt;/code&gt;​数値と同じように扱える。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;他の​&lt;code&gt;FD&lt;/code&gt;(&lt;code&gt;3&lt;/code&gt;​以上の数値)は初期状態では空っぽの状態にある。&lt;br&gt;
+&lt;code&gt;FD&lt;/code&gt;​数値の上限値は(リソース制限・調査コマンドの)​&lt;code&gt;ulimit -n&lt;/code&gt;​の​&lt;code&gt;値-1&lt;/code&gt;​で求められる。この値は環境によって異なる。(たぶん 255 までならどの環境でも使える)&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;quoteblock&quot;&gt;
+&lt;blockquote&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;例: &lt;code&gt;ulimit -n&lt;/code&gt; &amp;#8594; &lt;code&gt;1024&lt;/code&gt;​ならば​&lt;code&gt;1023&lt;/code&gt;​まで使うことが出来る&lt;/p&gt;
+&lt;/div&gt;
+&lt;/blockquote&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;なぜ012だけでなく3以上が用意されているか&quot;&gt;なぜ​&lt;code&gt;0&lt;/code&gt;,&lt;code&gt;1&lt;/code&gt;,&lt;code&gt;2&lt;/code&gt;​だけでなく​&lt;code&gt;3&lt;/code&gt;​以上が用意されているか？&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;なぜなら使い途があるから。&lt;br&gt;
+標準入力・標準出力・標準エラー出力の3種類だけでは表現出来ないパイプライン構造・リダイレクト構造・入出力構造を表現するために使用出来るから。&lt;br&gt;
+ファイルを​&lt;code&gt;open&lt;/code&gt;​した結果を格納したり、既にある​&lt;code&gt;FD&lt;/code&gt;​の複製元・複製先として使う。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock note&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;＊&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+&lt;code&gt;&amp;lt;&lt;/code&gt;, &lt;code&gt;&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;gt;&amp;gt;&lt;/code&gt; の左辺に来る数値はいずれも​&lt;code&gt;file descriptor&lt;/code&gt;​。
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;0&lt;/code&gt;,&lt;code&gt;1&lt;/code&gt;,&lt;code&gt;2&lt;/code&gt;​にはあらかじめ以下のストリームが関連付けられている。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;ulist&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;0&lt;/code&gt;: &lt;code&gt;stdin&lt;/code&gt;(標準入力)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;1&lt;/code&gt;: &lt;code&gt;stdout&lt;/code&gt;(標準出力)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;2&lt;/code&gt;: &lt;code&gt;stderr&lt;/code&gt;(標準エラー出力)&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;(繰り返しになるが)これらの数値はマジックナンバーではない。&lt;br&gt;
+&lt;code&gt;stdout&lt;/code&gt;​を指す​&lt;code&gt;3&lt;/code&gt;​を作れるし、​&lt;code&gt;stdin&lt;/code&gt;​を指す​&lt;code&gt;100&lt;/code&gt;​を作れる。&lt;br&gt;
+&lt;code&gt;0&lt;/code&gt;,&lt;code&gt;1&lt;/code&gt;,&lt;code&gt;2&lt;/code&gt;​を閉じることも出来るし、​&lt;code&gt;0&lt;/code&gt;,&lt;code&gt;1&lt;/code&gt;,&lt;code&gt;2&lt;/code&gt;​が指す先を変えることも出来る。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;よくある例-command-1-all_log-txt-21&quot;&gt;よくある例 &lt;code&gt;command  1&amp;gt; all_log.txt  2&amp;gt;&amp;amp;1&lt;/code&gt;&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;標準出力と標準エラー出力の両方を同じファイルに出力したい場合の定型句。&lt;br&gt;
+&lt;code&gt;cat not_found.txt  1&amp;gt; all_log.txt  2&amp;gt;&amp;amp;1&lt;/code&gt; (［正の例］ &lt;code&gt;2&amp;gt;&amp;amp;1&lt;/code&gt;​が後にある)&lt;br&gt;
+なぜ&lt;br&gt;
+​&lt;code&gt;cat not_found.txt  2&amp;gt;&amp;amp;1  1&amp;gt; all_log.txt&lt;/code&gt;​ (［誤の例］ &lt;code&gt;2&amp;gt;&amp;amp;1&lt;/code&gt;​が先にある)&lt;br&gt;
+とは動作が違うか？&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;redirection-operatorの評価順序&quot;&gt;&lt;code&gt;Redirection Operator&lt;/code&gt;​の評価順序&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;​&lt;code&gt;Redirection Operator&lt;/code&gt;​は左から右へ評価される。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;動作&quot;&gt;動作&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;上記例で使われている2種類の​&lt;code&gt;Operator&lt;/code&gt;(&lt;code&gt;&amp;gt;&lt;/code&gt;&lt;sup&gt;Output-Redirection&lt;/sup&gt;​と​&lt;code&gt;&amp;gt;&amp;amp;&lt;/code&gt;^^​)​の動作を、​&lt;code&gt;C++&lt;/code&gt;​言語風に説明すると以下の通り。&lt;br&gt;
+この疑似コード説明の焦点は、​&lt;code&gt;file descriptor&lt;/code&gt;​と​&lt;code&gt;stream&lt;/code&gt;​の二重構造があるということ。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;c++&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// [L]&amp;gt;filepath 形式&lt;/span&gt;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// left hand side, file descriptor number&lt;/span&gt;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// right hand side, filepath&lt;/span&gt;
+&lt;span style=&quot;color: #B00040&quot;&gt;void&lt;/span&gt; &lt;span style=&quot;color: #008000; font-weight: bold&quot;&gt;operator&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;&amp;gt;&lt;/span&gt;(&lt;span style=&quot;color: #B00040&quot;&gt;int&lt;/span&gt; left_fd&lt;span style=&quot;color: #666666&quot;&gt;=1&lt;/span&gt;, string right_path) {
+    &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// 右辺ファイルを書き込みでopenして左辺のFDに格納する。&lt;/span&gt;
+    BashFDs[left_fd].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; open(right_path, WRITE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; CREATE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; TRUNCATE);
+}
+
+
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// [L]&amp;gt;&amp;amp;[R] 形式&lt;/span&gt;
+&lt;span style=&quot;color: #B00040&quot;&gt;void&lt;/span&gt; &lt;span style=&quot;color: #008000; font-weight: bold&quot;&gt;operator&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;&amp;gt;&amp;amp;&lt;/span&gt;(&lt;span style=&quot;color: #B00040&quot;&gt;int&lt;/span&gt; left_fd&lt;span style=&quot;color: #666666&quot;&gt;=1&lt;/span&gt;, &lt;span style=&quot;color: #B00040&quot;&gt;int&lt;/span&gt; right_fd) {
+    &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// 右辺のFDの中身を左辺のFDへ&lt;/span&gt;
+    BashFDs[left_fd].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; BashFDs[right_fd].stream;
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;なお​&lt;code&gt;FD&lt;/code&gt;​の中にあるものを「ストリーム」や「ストリームハンドル」という名前で呼ぶことは一般的ではない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;FD​操作&lt;/code&gt;​を理解する際は​&lt;code&gt;&amp;gt;&lt;/code&gt;​を入出力の向きの比喩として読まない方が理解しやすい。&lt;br&gt;
+&lt;code&gt;&amp;gt;&lt;/code&gt;​はファイルを​&lt;code&gt;open&lt;/code&gt;​する操作であることを理解すること。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;quoteblock&quot;&gt;
+&lt;blockquote&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;上記の疑似コードは​&lt;code&gt;stream&lt;/code&gt;​が上書きされる時に​&lt;code&gt;close&lt;/code&gt;​されることや、BashFDsの変更がコマンドライン1行で放棄されることは表現されていない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;また、これは​&lt;code&gt;bash&lt;/code&gt;​における​&lt;code&gt;file descriptor&lt;/code&gt;​操作のための比喩コードである。&lt;br&gt;
+Unix系OS一般における​&lt;code&gt;file descriptor&lt;/code&gt;​の比喩コードだと解釈してはいけない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/blockquote&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;正の例の動作-1-all_log-txt-21&quot;&gt;正の例の動作; &lt;code&gt;1&amp;gt; all_log.txt  2&amp;gt;&amp;amp;1&lt;/code&gt;&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;cat not_found.txt  1&amp;gt; all_log.txt  2&amp;gt;&amp;amp;1&lt;/code&gt;​を​&lt;code&gt;C++&lt;/code&gt;​風コードで挙動を書くと以下。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;c++&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// ファイルを開いてストリームハンドルを FD1 に格納&lt;/span&gt;
+BashFDs[&lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; open(&lt;span style=&quot;color: #BA2121&quot;&gt;&amp;quot;all_log.txt&amp;quot;&lt;/span&gt;, WRITE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; CREATE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; TRUNCATE);
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// FD2 に FD1 のストリームハンドルを複製&lt;/span&gt;
+BashFDs[&lt;span style=&quot;color: #666666&quot;&gt;2&lt;/span&gt;].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; BashFDs[&lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;].stream;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// catコマンド実行&lt;/span&gt;
+cat(BashFDs, &lt;span style=&quot;color: #BA2121&quot;&gt;&amp;quot;not_found.txt&amp;quot;&lt;/span&gt;);&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;FD1&lt;/code&gt;​の​&lt;code&gt;stream&lt;/code&gt;​にも​&lt;code&gt;FD2&lt;/code&gt;​の​&lt;code&gt;stream&lt;/code&gt;​にも書き込みモードで開いた同じストリームが入っている。&lt;br&gt;
+期待通りに、標準出力とエラー出力に出力されるはずだった内容がファイルに書き込まれる。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;誤の例の動作-21-1-all_log-txt&quot;&gt;誤の例の動作; &lt;code&gt;2&amp;gt;&amp;amp;1  1&amp;gt; all_log.txt&lt;/code&gt;&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;一方で​&lt;code&gt;cat not_found.txt  2&amp;gt;&amp;amp;1  1&amp;gt; all_log.txt&lt;/code&gt;​を​&lt;code&gt;C++&lt;/code&gt;​風コードで挙動を書くならば&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;c++&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// 初期状態では FD1 にはstdout(標準出力ストリームハンドル)が設定されいてる&lt;/span&gt;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// FD2 に FD1 のストリームハンドルを複製&lt;/span&gt;
+BashFDs[&lt;span style=&quot;color: #666666&quot;&gt;2&lt;/span&gt;].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; BashFDs[&lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;].stream;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// ファイルを開いてストリームハンドルを FD1 に格納&lt;/span&gt;
+BashFDs[&lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; open(&lt;span style=&quot;color: #BA2121&quot;&gt;&amp;quot;all_log.txt&amp;quot;&lt;/span&gt;, WRITE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; CREATE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; TRUNCATE);
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// catコマンド実行&lt;/span&gt;
+cat(BashFDs, &lt;span style=&quot;color: #BA2121&quot;&gt;&amp;quot;not_found.txt&amp;quot;&lt;/span&gt;);&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;FD1&lt;/code&gt;​の​&lt;code&gt;stream&lt;/code&gt;​にはファイルへのストリームが入っているが、​&lt;code&gt;FD2&lt;/code&gt;​には​&lt;code&gt;stdout&lt;/code&gt;​が入ってしまっている。&lt;br&gt;
+後者の例が必要になる場合もあるが、標準出力もエラー出力も同じファイルに書き出したいという要求には一致しない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;二重オープン-さらに別の誤の例-1-all_log-txt-2-all_log-txt&quot;&gt;二重オープン; さらに別の誤の例; &lt;code&gt;1&amp;gt; all_log.txt  2&amp;gt; all_log.txt&lt;/code&gt;&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;もう1例​&lt;code&gt;cat not_found.txt  1&amp;gt; all_log.txt  2&amp;gt; all_log.txt&lt;/code&gt;​の場合を​&lt;code&gt;C++&lt;/code&gt;​風コードで挙動を書く&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;c++&quot;&gt;&lt;span&gt;&lt;/span&gt;BashFDs[&lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; open(&lt;span style=&quot;color: #BA2121&quot;&gt;&amp;quot;all_log.txt&amp;quot;&lt;/span&gt;, WRITE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; CREATE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; TRUNCATE);
+BashFDs[&lt;span style=&quot;color: #666666&quot;&gt;2&lt;/span&gt;].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; open(&lt;span style=&quot;color: #BA2121&quot;&gt;&amp;quot;all_log.txt&amp;quot;&lt;/span&gt;, WRITE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; CREATE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; TRUNCATE);
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// 以下省略&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;2回のopenとTRUNCATE(切り詰め)が行なわれてしまうし、2つのストリームが生成されてしまう。&lt;br&gt;
+そのために、同じファイルに出力とエラーを書き込もうとしているのに、​&lt;code&gt;1&lt;/code&gt;​と​&lt;code&gt;2&lt;/code&gt;​はseek位置を共有しない。&lt;br&gt;
+これを動作させた結果はややこしい。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;追記-読み込み-fd複製-の動作&quot;&gt;&lt;code&gt;&amp;gt;&amp;gt;&lt;/code&gt;&lt;sup&gt;追記&lt;/sup&gt;, &lt;code&gt;&amp;lt;&lt;/code&gt;&lt;sup&gt;読み込み&lt;/sup&gt;, &lt;code&gt;&amp;lt;&amp;amp;&lt;/code&gt;&lt;sup&gt;FD複製&lt;/sup&gt; の動作&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;他の​&lt;code&gt;Redirection Operation&lt;/code&gt;​を​&lt;code&gt;C++&lt;/code&gt;​風コードで挙動を書くならば&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;c++&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #B00040&quot;&gt;void&lt;/span&gt; &lt;span style=&quot;color: #008000; font-weight: bold&quot;&gt;operator&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt;(&lt;span style=&quot;color: #B00040&quot;&gt;int&lt;/span&gt; fd&lt;span style=&quot;color: #666666&quot;&gt;=1&lt;/span&gt;, string path) {
+    &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// 追記モードで右辺ファイルをopenしてストリームハンドルを格納&lt;/span&gt;
+    BashFDs[fd].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; open(path, WRITE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; CREATE &lt;span style=&quot;color: #666666&quot;&gt;|&lt;/span&gt; APPEND);
+}
+
+&lt;span style=&quot;color: #B00040&quot;&gt;void&lt;/span&gt; &lt;span style=&quot;color: #008000; font-weight: bold&quot;&gt;operator&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;&amp;lt;&lt;/span&gt;(&lt;span style=&quot;color: #B00040&quot;&gt;int&lt;/span&gt; fd&lt;span style=&quot;color: #666666&quot;&gt;=0&lt;/span&gt;, string path) {
+    &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// 読み込みモードで右辺ファイルをopenしてストリームハンドルを格納&lt;/span&gt;
+    BashFDs[fd].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; open(path, READ);
+}
+
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// [n]&amp;lt;&amp;amp;[m]&lt;/span&gt;
+&lt;span style=&quot;color: #B00040&quot;&gt;void&lt;/span&gt; &lt;span style=&quot;color: #008000; font-weight: bold&quot;&gt;operator&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;&amp;lt;&amp;amp;&lt;/span&gt;(&lt;span style=&quot;color: #B00040&quot;&gt;int&lt;/span&gt; left_fd&lt;span style=&quot;color: #666666&quot;&gt;=0&lt;/span&gt;, &lt;span style=&quot;color: #B00040&quot;&gt;int&lt;/span&gt; right_fd) {
+    &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;// 左辺FDに右辺FDの中身を複製&lt;/span&gt;
+    BashFDs[left_fd].stream &lt;span style=&quot;color: #666666&quot;&gt;=&lt;/span&gt; BashFDs[right_fd].stream;
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;&amp;lt;&amp;amp;&lt;/code&gt;&lt;sup&gt;読み込みFD複製&lt;/sup&gt;​と​&lt;code&gt;&amp;gt;&amp;amp;&lt;/code&gt;&lt;sup&gt;書き込みFD複製&lt;/sup&gt;​は左辺省略時のデフォルト引数以外に違いはないことに注目。&lt;br&gt;
+両辺を明示するならば、この二つの​&lt;code&gt;Operators&lt;/code&gt;​は同じ挙動をする。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;標準入力に書き込む&quot;&gt;標準入力に書き込む&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;環境依存&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;console&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok | tr -d &lt;span style=&quot;color: #BA2121&quot;&gt;&amp;#39;o&amp;#39;&lt;/span&gt;
+&lt;span style=&quot;color: #888888&quot;&gt;k&lt;/span&gt;
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# tr によってoが消された&lt;/span&gt;
+
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# FD1にstdinを割り当ててみる&lt;/span&gt;
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; ok &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&amp;gt;&amp;amp;&lt;span style=&quot;color: #666666&quot;&gt;0&lt;/span&gt; | tr -d &lt;span style=&quot;color: #BA2121&quot;&gt;&amp;#39;o&amp;#39;&lt;/span&gt;
+&lt;span style=&quot;color: #888888&quot;&gt;ok&lt;/span&gt;
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# oが表示される上にパイプを回避している&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;ファイルを開く操作とfile-descriptor操作の区別&quot;&gt;ファイルを開く操作と​&lt;code&gt;file descriptor操作&lt;/code&gt;​の区別&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;&amp;lt;,&amp;gt;,&amp;amp;&lt;/code&gt; といった文字を使った操作には大別して4種類ある。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;など&quot;&gt;&lt;code&gt;&amp;lt;&lt;/code&gt;, &lt;code&gt;&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;gt;&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;lt;&amp;gt;&lt;/code&gt; など&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;左辺に​&lt;code&gt;FD&lt;/code&gt;​数値を、右辺にファイルパスを取る表現&lt;br&gt;
+&lt;strong&gt;ファイルをそれぞれの条件で開き左辺の​&lt;code&gt;FD&lt;/code&gt;​に割り当てる。&lt;/strong&gt;&lt;br&gt;
+左辺を省略した場合の初期値はそれぞれ &lt;code&gt;0&amp;lt;&lt;/code&gt;, &lt;code&gt;1&amp;gt;&lt;/code&gt;, &lt;code&gt;1&amp;gt;&amp;gt;&lt;/code&gt;, &lt;code&gt;0&amp;lt;&amp;gt;&lt;/code&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;&quot;&gt;&lt;code&gt;&amp;lt;&amp;amp;&lt;/code&gt;, &lt;code&gt;&amp;gt;&amp;amp;&lt;/code&gt;&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;左辺と右辺の両方に数値を取る表現(ここではこれを​&lt;code&gt;file descriptor操作&lt;/code&gt;​, &lt;code&gt;FD操作&lt;/code&gt;​と呼ぶ)&lt;br&gt;
+&lt;code&gt;&amp;lt;&amp;amp;&lt;/code&gt;, &lt;code&gt;&amp;gt;&amp;amp;&lt;/code&gt; ; &lt;strong&gt;右辺の​&lt;code&gt;FD&lt;/code&gt;​を複製して左辺に割り当てる。&lt;/strong&gt;&lt;br&gt;
+左辺を省略した場合の初期値はそれぞれ &lt;code&gt;0&amp;lt;&amp;amp;&lt;/code&gt;, &lt;code&gt;1&amp;gt;&amp;amp;&lt;/code&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;-2&quot;&gt;&lt;code&gt;&amp;amp;&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;amp;&amp;gt;&amp;gt;&lt;/code&gt;&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;左辺なし、右辺にファイルパスを取る表現&lt;br&gt;
+上記の組み合わせを簡単に表現するためのもの。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;-3&quot;&gt;&lt;code&gt;&amp;lt;&amp;lt;&lt;/code&gt;, &lt;code&gt;&amp;lt;&amp;lt;&amp;lt;&lt;/code&gt;&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;左辺に​&lt;code&gt;FD&lt;/code&gt;​数値を、右辺以降にデータを表現するもの&lt;br&gt;
+Here Document, Here String。&lt;br&gt;
+説明省略。&lt;/p&gt;
+&lt;/div&gt;
+&lt;hr&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;区別まとめ&quot;&gt;区別まとめ&lt;/h3&gt;
+&lt;div class=&quot;ulist&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;左辺に​&lt;code&gt;FD&lt;/code&gt;​数値を取るか、何も取らないか&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;右辺に​&lt;code&gt;FD&lt;/code&gt;​数値を取るか、ファイルパスを取るか、データを取るか&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;fd操作の寿命&quot;&gt;&lt;code&gt;FD&lt;/code&gt;​操作の寿命&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;ここまでで説明した​&lt;code&gt;FD&lt;/code&gt;​操作やリダイレクト操作は、指定したコマンドに対してしか効果がない。&lt;br&gt;
+以下に例を示すが、直感に反する動作はないと思う。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;&lt;code&gt;FD&lt;/code&gt;​操作影響は次の行のコマンドには持ち越されない&lt;/div&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;commandA &amp;gt;​ result.txt
+commandB​
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# commandB の標準出力は result.txt には入らない&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;&lt;code&gt;;&lt;/code&gt;(&lt;code&gt;semicolon&lt;/code&gt;)の左側に対する操作は、右側には影響しない&lt;/div&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;commandA &amp;gt; result.txt ; commandB
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# commandB の標準出力は result.txt には入らない&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;&lt;code&gt;|&lt;/code&gt;(&lt;code&gt;vertical bar&lt;/code&gt;)の左側に対する操作は、右側には影響しない&lt;/div&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;commandA &lt;span style=&quot;color: #666666&quot;&gt;2&lt;/span&gt;&amp;gt; error.txt | commandB
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# commandA の標準エラー出力は result.txt に入る&lt;/span&gt;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# commandB の標準エラー出力は result.txt には入らない&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;&lt;code&gt;|&lt;/code&gt;(&lt;code&gt;vertical bar&lt;/code&gt;)の右側に対する操作は、左側には影響しない&lt;/div&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;commandA | commandB &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&amp;gt; all.txt &lt;span style=&quot;color: #666666&quot;&gt;2&lt;/span&gt;&amp;gt;&amp;amp;&lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# commandA の標準出力は commandB の入力に入る。&lt;/span&gt;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# commandA の標準エラー出力は端末の標準エラー出力に出る。&lt;/span&gt;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# commandB の標準出力と標準エラー出力は all.txt に入る&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;execを理解するための準備&quot;&gt;&lt;code&gt;exec&lt;/code&gt;​を理解するための準備&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;当然、ファイルを取るリダイレクト操作はファイルを​&lt;code&gt;open&lt;/code&gt;​している。&lt;br&gt;
+操作に応じて​&lt;code&gt;read&lt;/code&gt;​か​&lt;code&gt;write&lt;/code&gt;​されて、コマンドの終了後に​&lt;code&gt;close&lt;/code&gt;​する。&lt;br&gt;
+コマンドに直接リダイレクト操作を書く方法では、ファイルを​&lt;code&gt;close&lt;/code&gt;​させない方法(ファイルを開きっぱなしにする方法)は存在しない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;単純なリダイレクト操作では、いつ​&lt;code&gt;open&lt;/code&gt;​されて、いつ​&lt;code&gt;close&lt;/code&gt;​されるかは気にしなくてもよい。&lt;br&gt;
+しかし、​&lt;code&gt;fifo&lt;/code&gt;​をリダイレクトに使う際や、​&lt;code&gt;exec&lt;/code&gt;​を使う際には、​&lt;code&gt;open&lt;/code&gt;​と​&lt;code&gt;close&lt;/code&gt;​のタイミングを知っておくと動作が予測しやすい。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect1&quot;&gt;
+&lt;h2 id=&quot;execによるfile-descriptor操作の永続化&quot;&gt;&lt;code&gt;exec&lt;/code&gt;​による​&lt;code&gt;file descriptor操作&lt;/code&gt;​の永続化&lt;/h2&gt;
+&lt;div class=&quot;sectionbody&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;exec&lt;/code&gt;​は bash の built in command です。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;exec&lt;/code&gt;​自体もコマンドだが、​&lt;code&gt;exec&lt;/code&gt;​の引数もコマンドであるため用語曖昧さがある。&lt;br&gt;
+この項目では以降、単語「コマンド」を引数側に指定されるコマンドを指すものとしてのみ使う。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;exec&lt;/code&gt;​の機能は2つある。そのうちの［リダイレクト操作の永続化］が理解しにくい。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;機能1-現在のbashプロセスをexecに続くコマンドで置き換える&quot;&gt;機能1: 現在の​&lt;code&gt;bash&lt;/code&gt;​プロセスを​&lt;code&gt;exec&lt;/code&gt;​に続くコマンドで置き換える&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;exec&lt;/code&gt;​以降にスクリプトやコマンドがあったとしても実行されない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock note&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;＊&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+試しに​&lt;code&gt;exec cat&lt;/code&gt;​した後に​&lt;code&gt;Ctrl+c&lt;/code&gt;​で強制終了すると、​&lt;code&gt;bash&lt;/code&gt;​に戻らないことを確認できる。
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;パイプと組み合わせた時の挙動は推測しにくいが、ここでは説明しない。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;末尾呼び出し最適化を想定した機能。&lt;br&gt;
+以降この機能を「プロセス書き換え​&lt;code&gt;exec&lt;/code&gt;​」と呼ぶ(が、もうこれ以降登場しない)。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock note&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;＊&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+bash の man で exec は &lt;code&gt;it replaces the shell&lt;/code&gt; と説明されているため「置き換え」という語を使いたい。けれど、​&lt;code&gt;Process Substitution&lt;/code&gt;(日本語訳: &lt;code&gt;プロセス置換&lt;/code&gt;)と紛らわしいため、区別のために「書き換え」という語をここでは使う。&lt;br&gt;
+&lt;code&gt;プロセス置換&lt;/code&gt;​と​&lt;code&gt;exec&lt;/code&gt;​によるプロセスの書き換えは違う機能である。
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock note&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;＊&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+&lt;code&gt;プロセス置換&lt;/code&gt;​とは例えば​&lt;code&gt;cat &amp;lt;(sed -e 's/a/A/' &amp;lt; fileB)  &amp;lt;(tr -d 'b' &amp;lt; fileD)&lt;/code&gt;​のようなリダイレクト機能のこと。
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;機能2-現在のbashプロセス内でリダイレクト操作の永続化&quot;&gt;機能2: 現在の​&lt;code&gt;bash&lt;/code&gt;​プロセス内でリダイレクト操作の永続化&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;exec&lt;/code&gt;​にコマンドを指定せずにリダイレクト操作だけを指定すると、以降のコマンドにも指定したリダイレクト状態が影響するようになる。&lt;br&gt;
+これをリダイレクト状態が永続化すると呼ぶ。&lt;br&gt;
+(当然だが別プロセスの​&lt;code&gt;bash&lt;/code&gt;​には影響しない)&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sidebarblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;［コマンドを指定せずに］とは&lt;/div&gt;
+&lt;p&gt;書式: &lt;code&gt;exec [-cl] [-a name] [command [arguments]]&lt;/code&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;exec&lt;/code&gt;​は左から引数を解釈していく。&lt;br&gt;
+もしそれが​&lt;code&gt;-a&lt;/code&gt;​の場合は、その次の引数は​&lt;code&gt;a&lt;/code&gt;​に対する引数(help text上の​&lt;code&gt;name&lt;/code&gt;​)として解釈する。&lt;br&gt;
+それ以外の​&lt;code&gt;-&lt;/code&gt;​から始まる引数は​&lt;code&gt;exec&lt;/code&gt;​に対する引数として解釈する。&lt;br&gt;
+存在しないオプションを指定するとエラーする。&lt;br&gt;
+そうやって解釈して、​&lt;code&gt;-&lt;/code&gt;​(&lt;code&gt;Hyphen&lt;/code&gt;)​から始まらない引数に出会ったら、それをコマンド(help text上の​&lt;code&gt;[command &amp;#8230;&amp;#8203;]&lt;/code&gt;)として解釈し、それ以降の引数をコマンドに対する引数​&lt;code&gt;[arguments]&lt;/code&gt;​として解釈する。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;もし​&lt;code&gt;-&lt;/code&gt;(&lt;code&gt;Hyphen&lt;/code&gt;)​から始まるコマンドを指定したい場合は、​&lt;code&gt;&quot;--&quot;&lt;/code&gt;​(&lt;code&gt;Hyphen&lt;/code&gt; 2つ)​を渡して​&lt;code&gt;exec&lt;/code&gt;​に対するオプションが終了したことを伝える必要がある。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code&gt;&lt;span&gt;&lt;/span&gt;exec -- -starts-with-hyphen-command.sh&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;code&gt;Redirection Operators&lt;/code&gt;&lt;sup&gt;リダイレクト操作オペレーター&lt;/sup&gt;​は​&lt;code&gt;exec&lt;/code&gt;​に対する引数としても、コマンドに対する引数としても解釈されない。&lt;br&gt;
+そのため、引数との順序関係を考慮する必要はない &lt;sup&gt;(​リダイレクト操作同士の順序は前述の通りである。そちらは考慮する必要がある)&lt;/sup&gt;​。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;リダイレクト操作永続化の用途&quot;&gt;リダイレクト操作永続化の用途&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;使ったらできること。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;ulist&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;コマンドごとに指定していたリダイレクト操作指定を減らす。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;間接的に指定する書き方によって、プログラミング適性を(わずかに)上げる。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;fifo&lt;/code&gt;​を​&lt;code&gt;open&lt;/code&gt;​したままにして、そこへ複数のコマンド結果を入れる。&lt;/p&gt;
+&lt;div class=&quot;ulist&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;fifo&lt;/code&gt;​は書き込み側​&lt;code&gt;close&lt;/code&gt;​するとそれが読み込み側に伝わるため、これを抑制するのに必要になる​&lt;sup&gt;(複数の書き込み側テクニックを使うことにより、閉じないようにする方法もある)&lt;/sup&gt;​。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;書き込みリダイレクトを複雑に結合する&lt;/p&gt;
+&lt;div class=&quot;ulist&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;ファイルを開く閉じるが繰り返されてもいいならば追記書き込み​&lt;code&gt;&amp;gt;&amp;gt;&lt;/code&gt;​で足りる。また、単純な例ならば​&lt;code&gt;()&lt;/code&gt;, &lt;code&gt;{}&lt;/code&gt;​で囲えば足りる。これら以外の場合にだけ必要になる。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;読み込みリダイレクトを複雑に結合する。&lt;/p&gt;
+&lt;div class=&quot;ulist&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;一度開いたストリームは、seek位置を保持し続けるため、コマンドAに読ませる、その続きをコマンドBに読ませる といったことが出来る​&lt;sup&gt;(どれだけのデータを読み出すかは各コマンド側が決める)&lt;/sup&gt;​。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;実行中の​&lt;code&gt;bash&lt;/code&gt;​の端末・仮想端末を別のものに切り替える; あるいは複数の仮想端末を現​&lt;code&gt;bash&lt;/code&gt;​につなぐ。&lt;br&gt;
+​&lt;code&gt;bash&lt;/code&gt;​を動作させたままに別の標準入力ストリーム・標準出力ストリーム・標準エラーストリームを​&lt;code&gt;0&lt;/code&gt;, &lt;code&gt;1&lt;/code&gt;, &lt;code&gt;2&lt;/code&gt;​に割り当てることが出来る。&lt;br&gt;
+これはつまり、別の(仮想)端末に現在の​&lt;code&gt;bash&lt;/code&gt;​を移動させることが出来ることを意味する。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock note&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;＊&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+プログラミング言語の定番機能であるファイル入出力機能の​&lt;code&gt;open&lt;/code&gt;​にあたる機能があるから、​&lt;code&gt;bash&lt;/code&gt;​にもseek機能があるかと期待するが、この機能は無い。
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;上のリストのうち​&lt;code&gt;exec&lt;/code&gt;​でなければ出来ないことは、ファイルを​&lt;code&gt;open&lt;/code&gt;​したままにすることと、仮想端末の変更だけ。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;sect2&quot;&gt;
+&lt;h3 id=&quot;exec-redi-fifo&quot;&gt;&lt;code&gt;fifo&lt;/code&gt;​との組み合わせ&lt;/h3&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;まずは比較のための​&lt;code&gt;非fifo&lt;/code&gt;​なおかつ​&lt;code&gt;exec&lt;/code&gt;​を使わない例。&lt;br&gt;
+出力先が普通のファイルならば、以下2例は同じ結果になる(ファイルの中身が​&lt;code&gt;&quot;xxxyyy&quot;&lt;/code&gt;​になる)。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# 分割の例&lt;/span&gt;
+&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; -n xxx &amp;gt; dest  &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# 1行目&lt;/span&gt;
+&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; -n yyy &amp;gt;&amp;gt; dest  &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# 2行目&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# 結合の例&lt;/span&gt;
+&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; -n xxxyyy &amp;gt; dest&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock note&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;＊&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+&lt;code&gt;echo -n&lt;/code&gt;​は末尾の改行を抑制するオプション
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;しかし、出力先が​&lt;code&gt;fifo&lt;/code&gt;​だった場合(​&lt;code&gt;dest&lt;/code&gt;​が​&lt;code&gt;fifo&lt;/code&gt;​だった場合)上記2例は等価ではない。&lt;br&gt;
+&lt;code&gt;fifo&lt;/code&gt;​の読み出し側が​&lt;code&gt;&quot;xxx&quot;&lt;/code&gt;​が来た時点で end-of-file を理由として​&lt;code&gt;close&lt;/code&gt;​が起きる。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;admonitionblock note&quot;&gt;
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td class=&quot;icon&quot;&gt;
+&lt;div class=&quot;title&quot;&gt;＊&lt;/div&gt;
+&lt;/td&gt;
+&lt;td class=&quot;content&quot;&gt;
+&lt;code&gt;fifo&lt;/code&gt;​の動作仕様は数行では説明できないため、​&lt;a href=&quot;2023-05-19-fifo.html#end-pipe&quot;&gt;別ページの[パイプの終了に関して]を参照のこと。&lt;/a&gt;​​
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;&lt;strong&gt;&lt;code&gt;&quot;xxxyyy&quot;&lt;/code&gt;​を​&lt;code&gt;fifo&lt;/code&gt;​の読み出し側に届けたいのであれば、1行目で起きる​&lt;code&gt;close&lt;/code&gt;​(書き込み側)を抑制する必要がある。&lt;/strong&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;そのための方法その1は括弧​&lt;code&gt;()&lt;/code&gt;​&lt;sup&gt;parenthesis&lt;/sup&gt;​や​&lt;code&gt;{}&lt;/code&gt;​&lt;sup&gt;curly-brace&lt;/sup&gt;​で囲うこと。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# 括弧の例&lt;/span&gt;
+&lt;span style=&quot;color: #666666&quot;&gt;{&lt;/span&gt;
+  &lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; -n xxx
+  &lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; -n yyy
+&lt;span style=&quot;color: #666666&quot;&gt;}&lt;/span&gt; &amp;gt; dest&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;方法2は​&lt;code&gt;exec&lt;/code&gt;​を使うこと&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;sh&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# execの例&lt;/span&gt;
+&lt;span style=&quot;color: #008000&quot;&gt;exec&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&amp;gt; dest  &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# open&lt;/span&gt;
+&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; -n xxx
+&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; -n yyy
+&lt;span style=&quot;color: #008000&quot;&gt;exec&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&amp;gt;&amp;amp;-  &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# close&lt;/span&gt;
+&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# after&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;方法2(&lt;code&gt;exec&lt;/code&gt;​の例)の after 以降で何かコマンドを実行すると​&lt;code&gt;FD1&lt;/code&gt;​が​&lt;code&gt;close&lt;/code&gt;​していてどこにも繋がっていないためエラーする。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;console&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; zzz
+&lt;span style=&quot;color: #888888&quot;&gt;bash: echo: write error: Bad file descriptor&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;paragraph&quot;&gt;
+&lt;p&gt;このエラーを回避するには元々の​&lt;code&gt;FD1&lt;/code&gt;​を保存して、後に元に戻す必要がある。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class=&quot;listingblock&quot;&gt;
+&lt;div class=&quot;content&quot;&gt;
+&lt;pre class=&quot;pygments highlight&quot; style=&quot;background: #f8f8f8;&quot;&gt;&lt;code data-lang=&quot;console&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# execの例その2&lt;/span&gt;
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;exec&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;10&lt;/span&gt;&amp;gt;&amp;amp; &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;  &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# copy(FD10 = FD1); FD10 に FD1 の中身を保存&lt;/span&gt;
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;exec&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&amp;gt; dest  &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# open&lt;/span&gt;
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; -n xxx
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; -n yyy
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;exec&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;1&lt;/span&gt;&amp;gt;&amp;amp;&lt;span style=&quot;color: #666666&quot;&gt;10&lt;/span&gt;  &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# close(FD1); copy(FD1 = FD10)&lt;/span&gt;
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;exec&lt;/span&gt; &lt;span style=&quot;color: #666666&quot;&gt;10&lt;/span&gt;&amp;gt;&amp;amp;-  &lt;span style=&quot;color: #408080; font-style: italic&quot;&gt;# close(FD10); してもしなくても良い&lt;/span&gt;
+&lt;span style=&quot;color: #000080; font-weight: bold&quot;&gt;$ &lt;/span&gt;&lt;span style=&quot;color: #008000&quot;&gt;echo&lt;/span&gt; zzz
+&lt;span style=&quot;color: #888888&quot;&gt;zzz&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;</content><author><name></name></author></entry><entry><title type="html">ffmpeg: 任意の画像加工コマンドで動画を加工する</title><link href="https://itr-tert.github.io/note/2023-03-07-ffmpeg-custom-filter.html" rel="alternate" type="text/html" title="ffmpeg: 任意の画像加工コマンドで動画を加工する" /><published>2023-03-07T00:00:00+09:00</published><updated>2023-03-07T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/ffmpeg-custom-filter</id><content type="html" xml:base="https://itr-tert.github.io/note/2023-03-07-ffmpeg-custom-filter.html">&lt;hr /&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;タイトル: あるいは: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;で大量の中間 png files を作らずに&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;imagemagick&lt;/code&gt;などのコマンドによる静止画単位での加工をする方法。&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo&lt;/code&gt;を入力や出力に使う場合に注意しなければならないこと。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;このページで説明することは&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;で無限に入力して、無限に出力する映像を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;imagemagick&lt;/code&gt;などで加工する&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;に任意のフレーム補間コマンドを噛ませる&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;などに応用できるかも知れません。&lt;/p&gt;
+
+&lt;p&gt;このページで説明する方法ではUnix互換環境を想定している。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;WSL&lt;/code&gt;(Windows Subsystem for Linux)や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;git bash&lt;/code&gt;では、しばしば&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo&lt;/code&gt;が期待通りの動きをしなかったという噂あり。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Windows&lt;/code&gt;での動作確認はしていない。&lt;/p&gt;
+
+&lt;h2 id=&quot;はじめに&quot;&gt;はじめに&lt;/h2&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;には実行時に custom video filter を追加する方法はありません(ffmpeg ver 5.1.1時点)。&lt;/p&gt;
+&lt;blockquote&gt;
+  &lt;p&gt;コードを書いて、自分でビルドする必要あり。&lt;br /&gt;
+&lt;a href=&quot;https://github.com/FFmpeg/FFmpeg/blob/master/doc/writing_filters.txt&quot;&gt;https://github.com/FFmpeg/FFmpeg/blob/master/doc/writing_filters.txt&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;imagemagick&lt;/code&gt;などのコマンドを使って動画の全フレームを加工したい場合は&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;全フレームを&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;png&lt;/code&gt;に書き出す&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;png&lt;/code&gt;を加工する&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;で再び動画に戻す&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;大量の一時&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;png&lt;/code&gt;が作られることになる。&lt;br /&gt;
+なんとなくそれがいやだから回避する。&lt;/p&gt;
+
+&lt;p&gt;出来る人にとっては簡単な問題なせいか、2023-03-07時点では随時変換の実装例がない。&lt;/p&gt;
+
+&lt;h2 id=&quot;概要&quot;&gt;概要&lt;/h2&gt;
+
+&lt;p&gt;以下3つを並列実行する。&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;step 1:
+    &lt;ul&gt;
+      &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;input.mp4&lt;/code&gt;を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;rawvideo&lt;/code&gt;として&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifoA&lt;/code&gt;へ書き込み&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;step 2:
+    &lt;ul&gt;
+      &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifoA&lt;/code&gt;を読み込みとして&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;open&lt;/code&gt;&lt;/li&gt;
+      &lt;li&gt;ループ
+        &lt;ul&gt;
+          &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifoA&lt;/code&gt;から1フレーム分だけ読み取って&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;png&lt;/code&gt;へ&lt;/li&gt;
+          &lt;li&gt;もし&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;png&lt;/code&gt;が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0&lt;/code&gt;サイズなら&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ループ終了&lt;/code&gt;&lt;/li&gt;
+          &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;png&lt;/code&gt;を加工する&lt;/li&gt;
+          &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;png&lt;/code&gt;を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;rawvideo&lt;/code&gt;として&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifoB&lt;/code&gt;へ書き込み&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/li&gt;
+      &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifoA&lt;/code&gt;を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;close&lt;/code&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;step 3:
+    &lt;ul&gt;
+      &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifoB&lt;/code&gt;を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;output.mp4&lt;/code&gt;へ&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;実装例&quot;&gt;実装例&lt;/h2&gt;
+
+&lt;p&gt;実装例を示すためのコードであるため実際に使うなら改変が必要。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;table class=&quot;rouge-table&quot;&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td class=&quot;gutter gl&quot;&gt;&lt;pre class=&quot;lineno&quot;&gt;1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;c&quot;&gt;#!/usr/bin/env bash&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;#&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# bash -version: GNU bash, version 5.2.2(1)-release (x86_64-pc-linux-gnu)&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# ffmpeg version 5.1.1-1ubuntu1 Copyright (c) 2000-2022 the FFmpeg developers&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# convert -version: Version: ImageMagick 6.9.11-60 Q16 x86_64 2021-01-25 https://imagemagick.org&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# mkfifo (GNU coreutils) 8.32&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# mktemp (GNU coreutils) 8.32&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;main&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;c&quot;&gt;## force_clean&lt;/span&gt;
+
+    filter_each_frames &lt;span class=&quot;s1&quot;&gt;'input.mp4'&lt;/span&gt;  &lt;span class=&quot;s1&quot;&gt;'output.mp4'&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+
+&lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;filter_image&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;dest&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;$(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;mktemp&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--suffix&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;.ffmpeg.png&lt;span class=&quot;si&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+    &lt;span class=&quot;c&quot;&gt;# convert command of imagemagick&lt;/span&gt;
+    convert &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-liquid-rescale&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'200x150!'&lt;/span&gt;  &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;dest&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;mv&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;dest&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+
+&lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;force_clean&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    ps xa | &lt;span class=&quot;nb&quot;&gt;grep&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-e&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;' ffmpeg.*-nostdin\| cat.*ffmpeg'&lt;/span&gt; | &lt;span class=&quot;nb&quot;&gt;sed&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-e&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'/ grep /d'&lt;/span&gt;
+
+    &lt;span class=&quot;nb&quot;&gt;kill&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-9&lt;/span&gt; &lt;span class=&quot;si&quot;&gt;$(&lt;/span&gt;ps xa |
+                  &lt;span class=&quot;nb&quot;&gt;grep&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-e&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;' ffmpeg.*-nostdin\| cat.*ffmpeg'&lt;/span&gt; |
+                  &lt;span class=&quot;nb&quot;&gt;sed&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-e&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'/ grep /d'&lt;/span&gt; |
+                  &lt;span class=&quot;nb&quot;&gt;cut&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-d&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;' '&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; 1&lt;span class=&quot;si&quot;&gt;)&lt;/span&gt;
+
+    &lt;span class=&quot;nb&quot;&gt;rm&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-rf&lt;/span&gt; /tmp/tmp.&lt;span class=&quot;k&quot;&gt;*&lt;/span&gt;.ffmpeg&lt;span class=&quot;k&quot;&gt;*&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+
+&lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;get_video_whrp&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;c&quot;&gt;# whrp: Width, Height, (frame)Rate, Pixel-format&lt;/span&gt;
+    
+    &lt;span class=&quot;o&quot;&gt;((&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;local&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; 0&lt;span class=&quot;o&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;local &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;prefix&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;width &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;prefix&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;height &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;prefix&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;r_frame_rate &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;prefix&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;pix_fmt &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;prefix&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;nb_read_frames &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;prefix&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;exit_code&quot;&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[[&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;*&lt;/span&gt;.png &lt;span class=&quot;o&quot;&gt;||&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;*&lt;/span&gt;.jpg  &lt;span class=&quot;o&quot;&gt;]]&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;then&lt;/span&gt;
+        &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+            ffprobe &lt;span class=&quot;nt&quot;&gt;-select_streams&lt;/span&gt; v:0  &lt;span class=&quot;nt&quot;&gt;-v&lt;/span&gt; error  &lt;span class=&quot;nt&quot;&gt;-show_entries&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;stream&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;width,height,pix_fmt &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+                    &lt;span class=&quot;nt&quot;&gt;-of&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;default&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;noprint_wrappers&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;1  &lt;span class=&quot;nt&quot;&gt;-i&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+            &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;exit_code&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$?&lt;/span&gt;
+            &lt;span class=&quot;nb&quot;&gt;echo &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;exit_code&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;exit_code&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt; | &lt;span class=&quot;nb&quot;&gt;sed&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-e&lt;/span&gt; s/^/&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;prefix&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;/
+    &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+        &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+            ffprobe &lt;span class=&quot;nt&quot;&gt;-select_streams&lt;/span&gt; v:0  &lt;span class=&quot;nt&quot;&gt;-v&lt;/span&gt; error  &lt;span class=&quot;nt&quot;&gt;-count_frames&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+                    &lt;span class=&quot;nt&quot;&gt;-show_entries&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;stream&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;width,height,r_frame_rate,pix_fmt,nb_read_frames &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+                    &lt;span class=&quot;nt&quot;&gt;-of&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;default&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;noprint_wrappers&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;1 &lt;span class=&quot;nt&quot;&gt;-i&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+            &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;exit_code&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$?&lt;/span&gt;
+            &lt;span class=&quot;nb&quot;&gt;echo &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;exit_code&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;exit_code&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt; | &lt;span class=&quot;nb&quot;&gt;sed&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-e&lt;/span&gt; s/^/&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;prefix&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;/
+    &lt;span class=&quot;k&quot;&gt;fi&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+
+&lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;make_temp_fifo&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;temp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;$(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;mktemp&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--dry-run&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--suffix&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;.ffmpeg&lt;span class=&quot;si&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;mkfifo&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-m&lt;/span&gt; 600  &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;temp&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt;  &lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;temp&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+
+&lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;filter_each_frames&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+
+    &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;input&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;output&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$2&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;log_isolation&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;0  &lt;span class=&quot;c&quot;&gt;# switch. 0 or 1&lt;/span&gt;
+
+    &lt;span class=&quot;nb&quot;&gt;source&lt;/span&gt; &amp;lt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;local&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;1 &lt;span class=&quot;nv&quot;&gt;prefix&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;''&lt;/span&gt; get_video_whrp &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;input&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt;
+
+    &lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;nb_read_frames[&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;nb_read_frames&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;] &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;width&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;height&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;((&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;exit_code&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;==&lt;/span&gt;0&lt;span class=&quot;o&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;||&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;return &lt;/span&gt;1
+
+    &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;fifo_s1_to_s2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;$(&lt;/span&gt;make_temp_fifo&lt;span class=&quot;si&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;fifo_s2_to_s3&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;$(&lt;/span&gt;make_temp_fifo&lt;span class=&quot;si&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;dest_whrp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;$(&lt;/span&gt;make_temp_fifo&lt;span class=&quot;si&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;png&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;$(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;mktemp&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--suffix&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;.ffmpeg.png&lt;span class=&quot;si&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+
+    &lt;span class=&quot;c&quot;&gt;# see bash(1)/REDIRECTION/Moving File Descriptors&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;exec &lt;/span&gt;101&amp;gt;&amp;amp; 1  &lt;span class=&quot;c&quot;&gt;# FD[101]: Bypass to stdout for logging&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;log_redirect&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;((&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;log_isolation&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;==&lt;/span&gt;1&lt;span class=&quot;o&quot;&gt;))&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;then
+            &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;$(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;dirname&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+            &lt;span class=&quot;nb&quot;&gt;test&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'.'&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'!='&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+                &lt;span class=&quot;nb&quot;&gt;mkdir&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-p&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+                &lt;span class=&quot;nb&quot;&gt;mkfifo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+            &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt; &amp;amp;&amp;gt; /dev/null
+
+            &lt;span class=&quot;nb&quot;&gt;cat&lt;/span&gt;  &amp;amp;&amp;gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+            &lt;span class=&quot;nb&quot;&gt;echo &lt;/span&gt;end &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; 1&amp;gt;&amp;amp; 101
+
+            &lt;span class=&quot;nb&quot;&gt;rm&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;else
+            &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;cat
+        &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;fi&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;step1&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;c&quot;&gt;# AV_LOG_FORCE_COLOR=1&lt;/span&gt;
+        ffmpeg  &lt;span class=&quot;nt&quot;&gt;-i&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;input&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; rawvideo  &lt;span class=&quot;nt&quot;&gt;-pix_fmt&lt;/span&gt; rgba  &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;fifo_s1_to_s2&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  &lt;span class=&quot;nt&quot;&gt;-y&lt;/span&gt;  &lt;span class=&quot;nt&quot;&gt;-nostdin&lt;/span&gt;
+
+        &lt;span class=&quot;nb&quot;&gt;echo &lt;/span&gt;step1 &lt;span class=&quot;k&quot;&gt;done &lt;/span&gt;1&amp;gt;&amp;amp; 101
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;step2&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+
+        &lt;span class=&quot;c&quot;&gt;# see bash(1)/REDIRECTION/Redirecting Input&lt;/span&gt;
+        &lt;span class=&quot;c&quot;&gt;# see open(2)/NOTES/FIFOs: ...blocks until the other end is also opened...&lt;/span&gt;
+        &lt;span class=&quot;c&quot;&gt;# Open fifo_s1_to_s2 in read mode and handle as FD 101&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;exec &lt;/span&gt;110&amp;lt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;fifo_s1_to_s2&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+
+        &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;count&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;0
+        &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;first&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;1
+
+        &lt;span class=&quot;c&quot;&gt;# while ((count &amp;lt; nb_read_frames)); do&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;while &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;true&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;do&lt;/span&gt;
+            &lt;span class=&quot;o&quot;&gt;((&lt;/span&gt;++count&lt;span class=&quot;o&quot;&gt;))&lt;/span&gt;
+
+            &lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-n&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;png&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+            &lt;span class=&quot;c&quot;&gt;# 0&amp;lt;&amp;amp;110 : Redirect ffmpeg standard input to 110(fifo_s1_to_s2).&lt;/span&gt;
+            ffmpeg  &lt;span class=&quot;nt&quot;&gt;-nostdin&lt;/span&gt;  &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+                    &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; rawvideo  &lt;span class=&quot;nt&quot;&gt;-pix_fmt&lt;/span&gt; rgba  &lt;span class=&quot;nt&quot;&gt;-video_size&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;width&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;height&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  &lt;span class=&quot;nt&quot;&gt;-i&lt;/span&gt; pipe:-  &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+                    &lt;span class=&quot;nt&quot;&gt;-frames&lt;/span&gt;:v 1  &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;png&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-y&lt;/span&gt;  0&amp;lt;&amp;amp; 110 &lt;span class=&quot;o&quot;&gt;||&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+                &lt;span class=&quot;nb&quot;&gt;break&lt;/span&gt;
+            &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+            &lt;span class=&quot;c&quot;&gt;# ffmpeg does not error even if rawvideo input is 0 size.&lt;/span&gt;
+            &lt;span class=&quot;nb&quot;&gt;test&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-s&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;png&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;||&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;break
+
+            &lt;/span&gt;filter_image &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;png&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+
+            &lt;span class=&quot;o&quot;&gt;((&lt;/span&gt;first &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; 0&lt;span class=&quot;o&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+                &lt;span class=&quot;nv&quot;&gt;first&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;0
+                &lt;span class=&quot;nb&quot;&gt;local&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;1 &lt;span class=&quot;nv&quot;&gt;prefix&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'dest_'&lt;/span&gt; get_video_whrp &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;png&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  | &lt;span class=&quot;nb&quot;&gt;tee&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;cat  &lt;/span&gt;1&amp;gt;&amp;amp;101&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;dest_whrp&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+                &lt;span class=&quot;c&quot;&gt;# see bash(1)/REDIRECTION/Redirecting Output&lt;/span&gt;
+                &lt;span class=&quot;c&quot;&gt;# Open fifo_s3_to_s3 in write mode and handle as FD 121&lt;/span&gt;
+                &lt;span class=&quot;nb&quot;&gt;exec &lt;/span&gt;121&amp;gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;fifo_s2_to_s3&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+            &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+            &lt;span class=&quot;c&quot;&gt;# output to 121(fifo_s2_to_s3)&lt;/span&gt;
+            ffmpeg &lt;span class=&quot;nt&quot;&gt;-nostdin&lt;/span&gt;  &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+                   &lt;span class=&quot;nt&quot;&gt;-i&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;png&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-frames&lt;/span&gt;:v 1  &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+                   &lt;span class=&quot;nt&quot;&gt;-pix_fmt&lt;/span&gt; rgba  &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; rawvideo  &lt;span class=&quot;o&quot;&gt;&amp;gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;cat  &lt;/span&gt;1&amp;gt;&amp;amp; 121&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-y&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;||&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+                &lt;span class=&quot;nb&quot;&gt;break&lt;/span&gt;
+            &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;done&lt;/span&gt;
+
+        &lt;span class=&quot;c&quot;&gt;# see bash(1)/REDIRECTION/Duplicating File Descriptors: &lt;/span&gt;
+        &lt;span class=&quot;c&quot;&gt;#       ...If word evaluates to -, file descriptor n is closed.&lt;/span&gt;
+        &lt;span class=&quot;c&quot;&gt;# '&amp;lt;&amp;amp; -', '&amp;gt;&amp;amp; -' mean the same thing&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;exec &lt;/span&gt;110&amp;lt;&amp;amp; -  &lt;span class=&quot;c&quot;&gt;# close fifo_s1_to_s2&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;exec &lt;/span&gt;121&amp;gt;&amp;amp; -  &lt;span class=&quot;c&quot;&gt;# close fifo_s2_to_s3&lt;/span&gt;
+
+        &lt;span class=&quot;nb&quot;&gt;echo &lt;/span&gt;step2 &lt;span class=&quot;k&quot;&gt;done &lt;/span&gt;1&amp;gt;&amp;amp; 101
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;step3&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;source&lt;/span&gt; &amp;lt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;cat&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;dest_whrp&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt;
+
+        ffmpeg &lt;span class=&quot;nt&quot;&gt;-nostdin&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+               &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; rawvideo  &lt;span class=&quot;nt&quot;&gt;-pix_fmt&lt;/span&gt; rgba  &lt;span class=&quot;nt&quot;&gt;-video_size&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;dest_width&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;dest_height&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+               &lt;span class=&quot;nt&quot;&gt;-framerate&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;r_frame_rate&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  &lt;span class=&quot;nt&quot;&gt;-i&lt;/span&gt; pipe:- &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+               &lt;span class=&quot;nt&quot;&gt;-pix_fmt&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;pix_fmt&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;output&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  &lt;span class=&quot;nt&quot;&gt;-y&lt;/span&gt;  0&amp;lt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;fifo_s2_to_s3&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+
+        &lt;span class=&quot;nb&quot;&gt;echo &lt;/span&gt;step3 &lt;span class=&quot;k&quot;&gt;done &lt;/span&gt;1&amp;gt;&amp;amp; 101
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+    &lt;span class=&quot;nb&quot;&gt;set&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-m&lt;/span&gt;  &lt;span class=&quot;c&quot;&gt;# enable job contorl&lt;/span&gt;
+
+    step1  2&amp;gt;&amp;amp;1 | log_redirect fifo/fs1 &amp;amp;
+    step2  2&amp;gt;&amp;amp;1 | log_redirect fifo/fs2 &amp;amp;
+    step3  2&amp;gt;&amp;amp;1 | log_redirect fifo/fs3 &amp;amp;
+
+    &lt;span class=&quot;nb&quot;&gt;wait
+
+    rm&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;fifo_s1_to_s2&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;fifo_s2_to_s3&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;dest_whrp&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;  &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;png&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+
+main &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$@&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;h3 id=&quot;notes&quot;&gt;Notes&lt;/h3&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;force_clean&lt;/code&gt;は強制終了によって残ったゴミの掃除。&lt;br /&gt;
+不本意なモノが消えたり停止したりするかも知れない。&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;log_isolation&lt;/code&gt;変数が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0&lt;/code&gt;の場合は、全ての進捗ログが標準出力と標準エラー出力に混ざって表示される(ごちゃ混ぜに表示される)。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;1&lt;/code&gt;の場合には step1,step2,step3 のログをそれぞれ&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo/fs1&lt;/code&gt;,&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo/fs2&lt;/code&gt;,&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo/fs3&lt;/code&gt;に流し込む。&lt;br /&gt;
+別の terminal で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cat fifo/fs1&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cat fifo/fs2&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cat fifo/fs3&lt;/code&gt;とすることでログの区別が容易になる。&lt;/p&gt;
+
+&lt;h2 id=&quot;解説&quot;&gt;解説&lt;/h2&gt;
+
+&lt;p&gt;上記コードは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;bash&lt;/code&gt;で動く&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;shell script&lt;/code&gt;というもの。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;shell script&lt;/code&gt;が何であるかはここでは説明しない。&lt;/p&gt;
+
+&lt;h3 id=&quot;ffmpeg--f-rawvideo&quot;&gt;ffmpeg -f rawvideo&lt;/h3&gt;
+&lt;p&gt;rawvideoフォーマットはヘッダーやメタデータを持たない形式。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;1 frame&lt;/code&gt;のサイズは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;width * height * pixel_bytes&lt;/code&gt;固定。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-pix_fmt&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-pixel_format&lt;/code&gt;は同義。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-r&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-framerate&lt;/code&gt;は同義。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;の入力ファイル前ならば入力ファイルの形式を指定している事になる。&lt;br /&gt;
+入力ファイルの後ならば出力ファイルの形式を指定している事になる(これらの使用はrawvideoに限った話ではない)。&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-f rawvideo  -pix_fmt rgba  -video_size &quot;400x300&quot;  -framerate 30&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;rawvideo&lt;/code&gt;形式による書き込みには&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;seek&lt;/code&gt;を必要としない。&lt;/p&gt;
+
+&lt;h3 id=&quot;ffmpegでfifoに出力する&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo&lt;/code&gt;に出力する&lt;/h3&gt;
+&lt;p&gt;特に注意することはない。&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo&lt;/code&gt;の取り扱いについては別ページへ:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;2023-05-19-fifo.html&quot;&gt;FIFO Special File&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;2023-03-13-bash-fd.html#exec-redi-fifo&quot;&gt;bashのFD(file descriptor)操作について&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;余談: 一部のフォーマットは書き込み時に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;seek&lt;/code&gt;を必要とするため&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo&lt;/code&gt;への出力に失敗する。&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h3 id=&quot;ffmpegでfifoや標準入力から入力する&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo&lt;/code&gt;や標準入力から入力する&lt;/h3&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo&lt;/code&gt;ファイルを指定しての入力はしばしば上手くいかない。&lt;br /&gt;
+入力ファイルが&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo&lt;/code&gt;であるということを示す&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo:&lt;/code&gt;のようなプロトコル指定子も存在しない。&lt;br /&gt;
+したがって、(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;にストリームがパイプ的性質であることを伝えるために)標準入力を利用する必要がある。&lt;/p&gt;
+
+&lt;p&gt;今回のように&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fifo&lt;/code&gt;経由で流れてくる複数フレームのrawvideoを1フレームずつ処理する場合、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;との間に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cat&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;tee&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dd&lt;/code&gt;など他のコマンドを挟んではいけない。&lt;br /&gt;
+バッファリングにより読み込み過ぎが発生した状態で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;が終了することにより、読み込み過ぎたまま&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg&lt;/code&gt;に渡らなかった分のデータが消える。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;下記2つは動作が異なる。前者では読み込み過ぎは発生しない。&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ffmpeg -nostdin -i pipe:0 -frames:v 1 dest.mp4 &amp;lt; fifo.rawvideo&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cat fifo.rawvideo | ffmpeg -nostdin -i pipe:0 -frames:v 1 dest.mp4&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-nostdin&lt;/code&gt;: インタラクティブコマンドを無効にするオプション。指定しなくてもいいかも？&lt;/p&gt;</content><author><name></name></author><summary type="html"></summary></entry><entry><title type="html">python3 でサブモジュールも reload する</title><link href="https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html" rel="alternate" type="text/html" title="python3 でサブモジュールも reload する" /><published>2022-05-17T00:00:00+09:00</published><updated>2022-05-17T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/python3-reload-module</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-05-17-python3-reload-module.html">&lt;h3 id=&quot;結論コード&quot;&gt;結論コード:&lt;/h3&gt;
 
 &lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;table class=&quot;rouge-table&quot;&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td class=&quot;gutter gl&quot;&gt;&lt;pre class=&quot;lineno&quot;&gt;1
 2
@@ -75,7 +1672,7 @@
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
 &lt;h3 id=&quot;なにが問題か&quot;&gt;なにが問題か:&lt;/h3&gt;
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;importlib.reload&lt;/code&gt; は引数モジュールのサブモジュールをリロードしない。&lt;br /&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;importlib.reload&lt;/code&gt; は引数モジュールのサブモジュールをリロードしない。  &lt;br /&gt;
 引数指定したモジュールが参照しているサブモジュールもリロードして欲しい。&lt;/p&gt;
 
 &lt;p&gt;上記のコードでは引数に指定したモジュールのファイルパスを&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;.__file__&lt;/code&gt;から得て、そのディレクトリ以下にファイルパスが属しているモジュールを &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;sys.modules&lt;/code&gt; から削除してから、再びインポートしている。&lt;/p&gt;
@@ -119,7 +1716,7 @@ func1()
     &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;built-in module&lt;/code&gt; は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;hasattr(built_in_module1, '__file__')&lt;/code&gt; == False&lt;/p&gt;
   &lt;/li&gt;
   &lt;li&gt;
-    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;__init__.py&lt;/code&gt; がないディレクトリ名に対するインポートは module型の namespace になる(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;import dir_name; str(dir_name)&lt;/code&gt; は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;lt;module 'dir_name' (namespace)&amp;gt;&lt;/code&gt;)&lt;br /&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;__init__.py&lt;/code&gt; がないディレクトリ名に対するインポートは module型の namespace になる(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;import dir_name; str(dir_name)&lt;/code&gt; は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;lt;module 'dir_name' (namespace)&amp;gt;&lt;/code&gt;)  &lt;br /&gt;
   &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;namespace module&lt;/code&gt; は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;namespace_module1.__file__ is None&lt;/code&gt;&lt;/p&gt;
   &lt;/li&gt;
   &lt;li&gt;
@@ -129,20 +1726,20 @@ func1()
     &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;inspect.getfile(obj)&lt;/code&gt; で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;obj&lt;/code&gt; が定義されたファイルが分かる。また &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;inspect.getfile&lt;/code&gt; の定義も参照のこと。&lt;/p&gt;
   &lt;/li&gt;
   &lt;li&gt;
-    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;globals()&lt;/code&gt; はそれが書かれた場所でのグローバル変数連想配列を返す。&lt;br /&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;globals()&lt;/code&gt; はそれが書かれた場所でのグローバル変数連想配列を返す。  &lt;br /&gt;
 これの要素の書き換えは反映される。&lt;/p&gt;
   &lt;/li&gt;
   &lt;li&gt;
-    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;locals()&lt;/code&gt; はそれが書かれた場所でのローカル変数連数配列を返す。&lt;br /&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;locals()&lt;/code&gt; はそれが書かれた場所でのローカル変数連数配列を返す。  &lt;br /&gt;
 これを書き換えても反映されない。&lt;/p&gt;
   &lt;/li&gt;
   &lt;li&gt;
     &lt;p&gt;see also: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IPython.lib.deepreload.reload&lt;/code&gt;&lt;/p&gt;
   &lt;/li&gt;
-&lt;/ul&gt;</content><author><name></name></author><summary type="html">結論コード: 1 2 3 import importlib import os.path import sys</summary></entry><entry><title type="html">python3, tkinter で画像が表示されない。原因はたぶん自動解放</title><link href="https://itr-tert.github.io/note/2022-04-27-tkinter.html" rel="alternate" type="text/html" title="python3, tkinter で画像が表示されない。原因はたぶん自動解放" /><published>2022-04-27T00:00:00+09:00</published><updated>2022-04-27T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/tkinter</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-04-27-tkinter.html">&lt;h3 id=&quot;結論&quot;&gt;結論:&lt;/h3&gt;
-&lt;p&gt;画像を表示している間はその PhotoImage インスタンスを保持しておく必要がある。&lt;br /&gt;
-(厳密には tkinter.Image のサブクラスのインスタンス)&lt;br /&gt;
-保持しておかなければ画像は表示されない。&lt;/p&gt;
+&lt;/ul&gt;</content><author><name></name></author><summary type="html">結論コード:</summary></entry><entry><title type="html">自動解放を抑制しないと python3, tkinter で画像が表示されない</title><link href="https://itr-tert.github.io/note/2022-04-27-tkinter.html" rel="alternate" type="text/html" title="自動解放を抑制しないと python3, tkinter で画像が表示されない" /><published>2022-04-27T00:00:00+09:00</published><updated>2022-04-27T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/tkinter</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-04-27-tkinter.html">&lt;h3 id=&quot;結論&quot;&gt;結論:&lt;/h3&gt;
+&lt;p&gt;画像を表示している間はその PhotoImage インスタンスを保持しておく必要がある。  &lt;br /&gt;
+(厳密には tkinter.Image のサブクラスのインスタンス)  &lt;br /&gt;
+保持していないと画像は表示されない。&lt;/p&gt;
 
 &lt;h3 id=&quot;環境&quot;&gt;環境:&lt;/h3&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;tkinter.TkVersion: 8.6
@@ -196,26 +1793,25 @@ python3 --version: Python 3.8.10
 &lt;span class=&quot;n&quot;&gt;window&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;mainloop&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
 &lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;コードから &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo_holder = photo&lt;/code&gt; を消すと &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt; は期待に反して&lt;strong&gt;描画されない&lt;/strong&gt;。エラーも出ない。&lt;/p&gt;
+&lt;p&gt;コードから &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo_holder = photo&lt;/code&gt; を消すと &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt; は描画されない(期待に反する)。エラーも出ない。&lt;/p&gt;
 
 &lt;blockquote&gt;
-  &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;mainloop()&lt;/code&gt;が動いている最中でも同様の問題が起きる。&lt;br /&gt;
-例えば次のような場合——&lt;/p&gt;
+  &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;mainloop()&lt;/code&gt;が動いている最中でも同様の問題が起きる。  &lt;br /&gt;
+例えば次のような場合&lt;/p&gt;
   &lt;blockquote&gt;
-    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;threading.Thread&lt;/code&gt;を使った別スレッドで、新たな&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImage&lt;/code&gt;を作成し&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;canvas.itemconfig(created_image, image=new_photoimage)&lt;/code&gt;などで表示画像を変更しようとした場合でも、&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;new_photoimage&lt;/code&gt;の中身である&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImageインスタンス&lt;/code&gt;を保持する変数、あるいは保持するオブジェクトがスコープからいなくなると、&lt;strong&gt;期待した描画は起こらない&lt;/strong&gt;。エラーも出ない。&lt;/p&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;threading.Thread&lt;/code&gt;を使った別スレッドで、新たな&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImage&lt;/code&gt;を作成し  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;canvas.itemconfig(created_image, image=new_photoimage)&lt;/code&gt;などで表示画像を変更しようとした場合でも、  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;new_photoimage&lt;/code&gt;の中身である&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImageインスタンス&lt;/code&gt;を保持する変数がスコープからいなくなると、&lt;strong&gt;期待した描画は起こらない&lt;/strong&gt;。エラーも出ない。&lt;/p&gt;
   &lt;/blockquote&gt;
 &lt;/blockquote&gt;
 
-&lt;p&gt;おそらく、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;window.mainloop()&lt;/code&gt; 内のイベント処理がされる前に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt;の中身が解放されてしまうため。&lt;/p&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;window.mainloop()&lt;/code&gt; 内のイベント処理がされる前に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt;の中身が解放されてしまうため(たぶん)。&lt;br /&gt;
+( 解放されるとしたら&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;func()&lt;/code&gt;を抜けたタイミングか？ )&lt;/p&gt;
 
-&lt;p&gt;( 解放されるとしたら&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;func()&lt;/code&gt;を抜けたタイミングか )&lt;/p&gt;
+&lt;p&gt;解放されないように&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt;の中身である&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImageインスタンス&lt;/code&gt;を保持しておく必要がある。  &lt;br /&gt;
+上の例ではグローバルスコープ変数に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImageインスタンス&lt;/code&gt;を入れることで解放を抑制している。&lt;/p&gt;
 
-&lt;p&gt;だから解放されないように、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt;の中身である&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImageインスタンス&lt;/code&gt;を保持するためのコードを書く必要がある。&lt;br /&gt;
-上の例ではグローバルスコープ変数に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImageインスタンス&lt;/code&gt;を入れることで解放処理から逃れさせている。&lt;/p&gt;
-
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImage&lt;/code&gt;の初期化方法にかかわらずこの問題は起きる。&lt;br /&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PhotoImage&lt;/code&gt;の初期化方法にかかわらずこの問題は起きる。  &lt;br /&gt;
 例えば:&lt;/p&gt;
 &lt;ul&gt;
   &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;tkinter.PhotoImage(file=&quot;image.png&quot;)&lt;/code&gt;&lt;/li&gt;
@@ -228,15 +1824,15 @@ python3 --version: Python 3.8.10
   &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;python&lt;/code&gt;には&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C++&lt;/code&gt;のようなスコープ抜け時の解放処理はない(そもそも&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;python&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;オブジェクト&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;プリミティブ型&lt;/code&gt;を除いて&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C++&lt;/code&gt;で言えばポインター扱い。だから&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C++&lt;/code&gt;だったとしてもデストラクタは走らない)&lt;/li&gt;
   &lt;li&gt;だったとしても &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;create_image&lt;/code&gt; を通じて&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;tk&lt;/code&gt;が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;photo&lt;/code&gt;を保持するはず(←tkinterにこの仕様が抜けている？)&lt;/li&gt;
   &lt;li&gt;※ &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;create_image&lt;/code&gt; の結果は int か str であってオブジェクトではない&lt;/li&gt;
-&lt;/ul&gt;</content><author><name></name></author><summary type="html">結論: 画像を表示している間はその PhotoImage インスタンスを保持しておく必要がある。 (厳密には tkinter.Image のサブクラスのインスタンス) 保持しておかなければ画像は表示されない。</summary></entry><entry><title type="html">dcm4cheの文字化け</title><link href="https://itr-tert.github.io/note/2022-01--dcm4che.html" rel="alternate" type="text/html" title="dcm4cheの文字化け" /><published>2022-02-24T00:00:00+09:00</published><updated>2022-02-24T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/dcm4che</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-01--dcm4che.html">&lt;p&gt;初稿: 2022-01-xx&lt;/p&gt;
+&lt;/ul&gt;</content><author><name></name></author><summary type="html">結論: 画像を表示している間はその PhotoImage インスタンスを保持しておく必要がある。 (厳密には tkinter.Image のサブクラスのインスタンス) 保持していないと画像は表示されない。</summary></entry><entry><title type="html">dcm4cheの文字化け</title><link href="https://itr-tert.github.io/note/2022-01--dcm4che.html" rel="alternate" type="text/html" title="dcm4cheの文字化け" /><published>2022-02-24T00:00:00+09:00</published><updated>2022-02-24T00:00:00+09:00</updated><id>https://itr-tert.github.io/note/dcm4che</id><content type="html" xml:base="https://itr-tert.github.io/note/2022-01--dcm4che.html">&lt;p&gt;初稿: 2022-01-xx&lt;/p&gt;
 
 &lt;p&gt;dcm4che / DICOM / ISO 2022 / 日本語処理&lt;/p&gt;
 
 &lt;h2 id=&quot;文字化け不具合を直しました&quot;&gt;文字化け不具合を直しました&lt;/h2&gt;
 &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4che&lt;/code&gt; や &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt; で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;あaあ&quot;&lt;/code&gt; みたいに全角→半角→全角の時に文字化けする不具合があります。&lt;/p&gt;
 
-&lt;p&gt;&lt;del&gt;直したものを本家 https://github.com/dcm4che/dcm4che にpull request してますが放置され中なんで修正版を配布します。&lt;/del&gt;&lt;br /&gt;
-マージされました(2022-02-12)。&lt;br /&gt;
+&lt;p&gt;&lt;del&gt;直したものを本家 https://github.com/dcm4che/dcm4che にpull request してますが放置され中なんで修正版を配布します。&lt;/del&gt;  &lt;br /&gt;
+本家にマージされました(2022-02-12)。  &lt;br /&gt;
 5.25.1以前のバージョンに適用するための修正版ファイルを配布します。&lt;/p&gt;
 
 &lt;p&gt;&lt;a href=&quot;https://github.com/itr-tert/dcm4che-modmojibake-download&quot;&gt;ダウンロード&lt;/a&gt;&lt;/p&gt;
@@ -245,7 +1841,7 @@ python3 --version: Python 3.8.10
 
 &lt;h3 id=&quot;この対策版で改善できる不具合&quot;&gt;この対策版で改善できる不具合&lt;/h3&gt;
 
-&lt;p&gt;不具合修正版を適用した後に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;が受信したDICOMファイルが対象です。
+&lt;p&gt;不具合修正版を適用した後に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;が受信したDICOMファイルが対象です。&lt;br /&gt;
 (適用前のデータについては次項参照)&lt;/p&gt;
 
 &lt;ol&gt;
@@ -259,8 +1855,8 @@ python3 --version: Python 3.8.10
 
 &lt;p&gt;1と2を満たしていたにも関わらず文字化けしていた場合は改善が期待できます。&lt;/p&gt;
 
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;の不備は外国製の検査ステーションや検査機を使っている場合に多いです。&lt;br /&gt;
-これらの製品は、日本語が入力出来ているように見えて&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO IR_100&quot;&lt;/code&gt;(Latin alphabet No.1)しか指定されていないDICOMファイルを作り出していることがあります。(DICOM規格違反)&lt;br /&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;の不備は外国製の検査ステーションや検査機を使っている場合に多いです。  &lt;br /&gt;
+これらの製品は、日本語が入力出来ているように見えて&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO IR_100&quot;&lt;/code&gt;(Latin alphabet No.1)しか指定されていないDICOMファイルを作り出していることがあります。(DICOM規格違反)  &lt;br /&gt;
 そういったデータは今回の文字化け不具合修正版でも文字化けします。&lt;/p&gt;
 
 &lt;p&gt;NOTE: 期待通りの文字列として扱うには、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DICOMファイル&lt;/code&gt;を入れる前に加工する必要あり。&lt;/p&gt;
@@ -285,7 +1881,7 @@ python3 --version: Python 3.8.10
 
 &lt;ul&gt;
   &lt;li&gt;
-    &lt;p&gt;ファイルからデータベースを再構築する&lt;br /&gt;
+    &lt;p&gt;ファイルからデータベースを再構築する  &lt;br /&gt;
 (新しくデータベースを割り当てて全DICOMファイルを読ませる。など)&lt;/p&gt;
   &lt;/li&gt;
   &lt;li&gt;
@@ -315,7 +1911,7 @@ python3 --version: Python 3.8.10
   &lt;li&gt;ほぼ元と同じデータをファイルとして(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ファイル&lt;/code&gt;)&lt;/li&gt;
 &lt;/ol&gt;
 
-&lt;p&gt;という3種類の保存を行ないます。&lt;br /&gt;
+&lt;p&gt;という3種類の保存を行ないます。  &lt;br /&gt;
 このうち&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;インデックス&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ファイル&lt;/code&gt;は意味上は文字化けしていません(保存された生&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ファイル&lt;/code&gt;は文字化けしていないが、DICOM規格による送信では&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ブロブ&lt;/code&gt;利用による文字化けが起きる)。&lt;/p&gt;
 
 &lt;ul&gt;
@@ -327,7 +1923,7 @@ python3 --version: Python 3.8.10
   &lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;p&gt;別データベースを用意することなく文字化けを修正できますが、&lt;br /&gt;
+&lt;p&gt;別データベースを用意することなく文字化けを修正できますが、  &lt;br /&gt;
 それをするツールはたぶんない。&lt;/p&gt;
 
 &lt;h2 id=&quot;dcm4chee-arc-light-雑記&quot;&gt;dcm4chee-arc-light 雑記&lt;/h2&gt;
@@ -377,12 +1973,12 @@ deploy dcm4chee-arc-light/dcm4chee-arc-ear/target/dcm4chee-arc-ear-5.25.1-mysql.
 deploy dcm4chee-arc-light/dcm4chee-arc-ui2/target/dcm4chee-arc-ui2-5.25.1.war
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
-&lt;p&gt;http://localhost:18080/dcm4chee-arc/ui2/&lt;br /&gt;
+&lt;p&gt;http://localhost:18080/dcm4chee-arc/ui2/  &lt;br /&gt;
 http://localhost:8080/dcm4chee-arc/ui2/&lt;/p&gt;
 
 &lt;h3 id=&quot;dcm4chee-arc-light-バージョンアップ&quot;&gt;dcm4chee-arc-light バージョンアップ&lt;/h3&gt;
-&lt;p&gt;方法はあるがドキュメントはみつからない。&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;update-*.sql&lt;/code&gt; と &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;update-*.ldif&lt;/code&gt; をそれぞれ適用する。&lt;br /&gt;
+&lt;p&gt;方法はあるがドキュメントはみつからない。  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;update-*.sql&lt;/code&gt; と &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;update-*.ldif&lt;/code&gt; をそれぞれ適用する。  &lt;br /&gt;
 (…)&lt;/p&gt;
 
 &lt;h3 id=&quot;data-sourceの記述を間違えた場合は&quot;&gt;data-sourceの記述を間違えた場合は&lt;/h3&gt;
@@ -414,7 +2010,7 @@ http://localhost:8080/dcm4chee-arc/ui2/&lt;/p&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 &lt;p&gt;上記理由: installation で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;create-*.sql&lt;/code&gt;の適用に失敗している。&lt;/p&gt;
 
-&lt;p&gt;あるいは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;のアップデートをしようとした時にデータベースの仕様が変わっていたことが原因。&lt;br /&gt;
+&lt;p&gt;あるいは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;のアップデートをしようとした時にデータベースの仕様が変わっていたことが原因。  &lt;br /&gt;
 その場合は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;update-*-*.sql&lt;/code&gt;を適用する。&lt;/p&gt;
 
 &lt;h4 id=&quot;エラー例&quot;&gt;エラー例&lt;/h4&gt;
@@ -428,8 +2024,8 @@ http://localhost:8080/dcm4chee-arc/ui2/&lt;/p&gt;
 
 &lt;ul&gt;
   &lt;li&gt;
-    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jboss-cli&lt;/code&gt;での&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;deploy dcm4chee-arc-*/deploy/dcm4chee-arc-ui2-*.war&lt;/code&gt;が失敗している。&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;deploy&lt;/code&gt;とだけ入力してdeploy済み&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;war&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ear&lt;/code&gt;を確認する。&lt;br /&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jboss-cli&lt;/code&gt;での&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;deploy dcm4chee-arc-*/deploy/dcm4chee-arc-ui2-*.war&lt;/code&gt;が失敗している。  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;deploy&lt;/code&gt;とだけ入力してdeploy済み&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;war&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ear&lt;/code&gt;を確認する。  &lt;br /&gt;
 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-ui2-*.war&lt;/code&gt;のように出れば正常。&lt;/p&gt;
   &lt;/li&gt;
   &lt;li&gt;
@@ -465,18 +2061,18 @@ http://localhost:8080/dcm4chee-arc/ui2/&lt;/p&gt;
 }
 14:52:21,336 INFO  [org.jboss.as.controller] (Controller Boot Thread) WFLYCTL0183: Service status report
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;上記理由: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;data-source&lt;/code&gt;が間違っている。あるいは、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jdbc-driver&lt;/code&gt;を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly&lt;/code&gt;が読み込めていない(上の例では&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;mysql&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jdbc-driver&lt;/code&gt;)。&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/modules/com/mysql/main/&lt;/code&gt;に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;mysql-connector-java-*.jar&lt;/code&gt;のようなファイルがあるかどうか確認。&lt;br /&gt;
+&lt;p&gt;上記理由: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;data-source&lt;/code&gt;が間違っている。あるいは、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jdbc-driver&lt;/code&gt;を&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly&lt;/code&gt;が読み込めていない(上の例では&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;mysql&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jdbc-driver&lt;/code&gt;)。  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/modules/com/mysql/main/&lt;/code&gt;に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;mysql-connector-java-*.jar&lt;/code&gt;のようなファイルがあるかどうか確認。  &lt;br /&gt;
 (存在しないなら&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;データベース名&quot; jdbc driver download&lt;/code&gt;とかで探してきて配置する)&lt;/p&gt;
 
-&lt;p&gt;次に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/modules/com/mysql/main/module.xml&lt;/code&gt;の内容を確認して&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;lt;resource-root path=&quot;mysql-connector-java-5.1.36-bin.jar&quot;/&amp;gt;&lt;/code&gt;とか書いてある行が実在しているファイルを指しているか確認する。&lt;br /&gt;
+&lt;p&gt;次に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/modules/com/mysql/main/module.xml&lt;/code&gt;の内容を確認して&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;lt;resource-root path=&quot;mysql-connector-java-5.1.36-bin.jar&quot;/&amp;gt;&lt;/code&gt;とか書いてある行が実在しているファイルを指しているか確認する。  &lt;br /&gt;
 存在しているjarファイルを指すように書き換える。&lt;/p&gt;
 
 &lt;h4 id=&quot;エラー例-jbossejbdefault-resource-adapter-name-service-not-found&quot;&gt;エラー例 (jboss.ejb.default-resource-adapter-name-service not found)&lt;/h4&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Caused by: org.jboss.msc.service.ServiceNotFoundException: Service service jboss.ejb.default-resource-adapter-name-service not found
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;上記理由: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc.xml&lt;/code&gt; の記述がおかしい。&lt;br /&gt;
-バージョンアップ時に起きる。&lt;br /&gt;
+&lt;p&gt;上記理由: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc.xml&lt;/code&gt; の記述がおかしい。  &lt;br /&gt;
+バージョンアップ時に起きる。  &lt;br /&gt;
 インストール作業での&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cp standalone.xml dcm4chee-arc.xml&lt;/code&gt;とするか&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cp standalone-full.xml dcm4chee-arc.xml&lt;/code&gt;とするかの選択が間違っている。&lt;/p&gt;
 
 &lt;h4 id=&quot;エラー例-ldap-serverへ繋がらない&quot;&gt;エラー例 (LDAP serverへ繋がらない)&lt;/h4&gt;
@@ -492,8 +2088,8 @@ Exception: localhost:389 [Root exception is java.net.ConnectException: 接続を
     Caused by: javax.naming.CommunicationException: localhost:389 [Root exception is java.net.ConnectException: 接続を拒否されました (Connection refused)]
     Caused by: java.net.ConnectException: 接続を拒否されました (Connection refused)&quot;}}}}
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;上記理由: LDAP serverへ繋がらない。&lt;br /&gt;
-上記例の場合は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ポート389&lt;/code&gt;が沈黙している。&lt;br /&gt;
+&lt;p&gt;上記理由: LDAP serverへ繋がらない。  &lt;br /&gt;
+上記例の場合は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ポート389&lt;/code&gt;が沈黙している。  &lt;br /&gt;
 どのポートを見に行くかはファイル&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties&lt;/code&gt;の&lt;/p&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; java.naming.provider.url=ldap://localhost:389/dc=dcm4che,dc=org
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
@@ -518,14 +2114,14 @@ unix系: netstat -a | grep 10389
   java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
   java.naming.security.credentials=secret
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;上記理由:&lt;br /&gt;
+&lt;p&gt;上記理由:  &lt;br /&gt;
 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc/ldap.properties&lt;/code&gt;にあるLDAP serverへ繋ぐための認証情報がおかしい(dcm4chee/wildflyはLDAPサーバーへは到達できている)&lt;/p&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  java.naming.security.principal=cn=admin,dc=dcm4che,dc=org
   java.naming.security.credentials=secret
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;この2行のどちらか。&lt;br /&gt;
-原因に多いのはprincipalの方。&lt;br /&gt;
-LDAPサーバーの設定を見て書き直す。&lt;br /&gt;
+&lt;p&gt;この2行のどちらか。  &lt;br /&gt;
+原因に多いのはprincipalの方。  &lt;br /&gt;
+LDAPサーバーの設定を見て書き直す。  &lt;br /&gt;
 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;java.naming.security.principal=uid=admin,ou=system&lt;/code&gt; にすれば接続できる場合もあるが、これが上手く行く場合は .ldif ファイルを使った導入作業に何か失敗している。&lt;/p&gt;
 
 &lt;h4 id=&quot;エラー例-no-enum-constant-orgdcm4cheearcconfxxx&quot;&gt;エラー例 (No enum constant org.dcm4chee.arc.conf.xxx)&lt;/h4&gt;
@@ -538,22 +2134,22 @@ LDAPサーバーの設定を見て書き直す。&lt;br /&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    Caused by: java.lang.IllegalArgumentException: No enum constant org.dcm4chee.arc.conf.SPSStatus.CANCELLED
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;こういったメッセージ(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;No enum constant org.dcm4chee.arc.conf.xxx&lt;/code&gt;) は LDAP Server のセットアップが失敗している状態(dcm4chee/wildflyはLDAPサーバーへ到達できていて、LDAP利用のための認証も出来ている)&lt;br /&gt;
-よくわからなければ LDAP Server を削除して1からやりなおすのが楽。&lt;br /&gt;
+&lt;p&gt;こういったメッセージ(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;No enum constant org.dcm4chee.arc.conf.xxx&lt;/code&gt;) は LDAP Server のセットアップが失敗している状態(dcm4chee/wildflyはLDAPサーバーへ到達できていて、LDAP利用のための認証も出来ている)  &lt;br /&gt;
+よくわからなければ LDAP Server を削除して1からやりなおすのが楽。  &lt;br /&gt;
 (※&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;CANCELLED&lt;/code&gt;に限れば、これは誤字でどこからかのバージョンで修正され&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;CANCELED&lt;/code&gt;になった)&lt;/p&gt;
 
 &lt;h3 id=&quot;wildfly設定反映&quot;&gt;wildfly設定反映&lt;/h3&gt;
-&lt;p&gt;使用するポートやログの設定が書いてある&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc.xml&lt;/code&gt;&lt;br /&gt;
-このファイルを編集(port番号を変えたり)した場合は&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/bin/standalone.sh -c dcm4chee-arc.xml&lt;/code&gt;&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/bin/standalone.bat -c dcm4chee-arc.xml&lt;/code&gt;&lt;br /&gt;
+&lt;p&gt;使用するポートやログの設定が書いてある  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/standalone/configuration/dcm4chee-arc.xml&lt;/code&gt;  &lt;br /&gt;
+このファイルを編集(port番号を変えたり)した場合は  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/bin/standalone.sh -c dcm4chee-arc.xml&lt;/code&gt;  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-*/bin/standalone.bat -c dcm4chee-arc.xml&lt;/code&gt;  &lt;br /&gt;
 を再起動する必要がある。&lt;/p&gt;
 
 &lt;h3 id=&quot;相性問題--wildfly-26&quot;&gt;相性問題 × wildfly-26&lt;/h3&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;20:55:58,478 ERROR [org.jboss.resteasy.resteasy_jaxrs.i18n] (default task-14) RESTEASY002020: Unhandled asynchronous exception, sending back 500: org.jboss.resteasy.spi.UnhandledException: java.lang.IncompatibleClassChangeError: Expected static method org.jboss.resteasy.spi.ResteasyProviderFactory.getContextData(Ljava/lang/Class;)Ljava/lang/Object;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-5.24.2-mysql&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;openjdk-12&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-26.0.0.Final&lt;/code&gt;&lt;br /&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-5.24.2-mysql&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;openjdk-12&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;wildfly-26.0.0.Final&lt;/code&gt;  &lt;br /&gt;
 wildfly-26はダメ(新しすぎ)&lt;/p&gt;
 
 &lt;h3 id=&quot;相性問題--openjdk-1701&quot;&gt;相性問題 × openjdk-17.0.1&lt;/h3&gt;
@@ -588,26 +2184,26 @@ wildfly-26はダメ(新しすぎ)&lt;/p&gt;
 &lt;p&gt;https://directory.apache.org/apacheds/download-old-versions.html&lt;/p&gt;
 
 &lt;h4 id=&quot;apache-directory-studio&quot;&gt;Apache Directory Studio&lt;/h4&gt;
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Apache Directory Studio&lt;/code&gt; で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt; を作成し start すると &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Apache Directory Studio&lt;/code&gt; に内臓された &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt; が開始される。&lt;br /&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Apache Directory Studio&lt;/code&gt; で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt; を作成し start すると &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Apache Directory Studio&lt;/code&gt; に内臓された &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt; が開始される。  &lt;br /&gt;
 内容実体はファイルとして &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;${HOME}/.ApacheDirectoryStudio/&lt;/code&gt; 以下に配置される。&lt;/p&gt;
 
 &lt;ul&gt;
-  &lt;li&gt;Apache Directory Studio : https://directory.apache.org/studio/&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP&lt;/code&gt;を扱うためのGUIを提供する。&lt;br /&gt;
+  &lt;li&gt;Apache Directory Studio : https://directory.apache.org/studio/  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP&lt;/code&gt;を扱うためのGUIを提供する。  &lt;br /&gt;
 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt;も内臓しているが常駐させるには向かない。&lt;/li&gt;
 &lt;/ul&gt;
 
 &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light&lt;/code&gt;ではセットアップ時とアップデート時に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;.ldif&lt;/code&gt;ファイルを&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt;へ適用するために使う。&lt;/p&gt;
 
 &lt;h4 id=&quot;apacheds-windows版&quot;&gt;ApacheDS Windows版&lt;/h4&gt;
-&lt;p&gt;https://directory.apache.org/apacheds/&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt;の単体&lt;br /&gt;
+&lt;p&gt;https://directory.apache.org/apacheds/  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt;の単体  &lt;br /&gt;
 Windows版ではサービスモードで実行される。&lt;/p&gt;
 
 &lt;p&gt;インストール時に質問される&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Server Home Directory&lt;/code&gt;は実行のためのファイルの配置場所。&lt;/p&gt;
 
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Server Instances Home Directory&lt;/code&gt;は書いてある通りインスタンスデータ(内容実体データ)を配置する場所。&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt;の中身を配置する場所。&lt;br /&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Server Instances Home Directory&lt;/code&gt;は書いてある通りインスタンスデータ(内容実体データ)を配置する場所。  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDAP Server&lt;/code&gt;の中身を配置する場所。  &lt;br /&gt;
 設定値をファイルレベルでバックアップしたい場合はここを含める。&lt;/p&gt;
 
 &lt;h3 id=&quot;ビルドエラー-dcm4chee-arc-light-5251&quot;&gt;ビルドエラー dcm4chee-arc-light 5.25.1&lt;/h3&gt;
@@ -642,7 +2238,7 @@ Windows版ではサービスモードで実行される。&lt;/p&gt;
 [ERROR] After correcting the problems, you can resume the build with the command
 [ERROR]   mvn &amp;lt;args&amp;gt; -rf :dcm4chee-arc-ui2
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;対象: dcm4chee-arc-light (date:Thu Jan 13 22:08:46 2022 +0100, commit:0528496c27ec8ec29e503712cc536305aa52e40b, version:5.25.1, )&lt;br /&gt;
+&lt;p&gt;対象: dcm4chee-arc-light (date:Thu Jan 13 22:08:46 2022 +0100, commit:0528496c27ec8ec29e503712cc536305aa52e40b, version:5.25.1, )  &lt;br /&gt;
 https://www.dcm4che.org/maven2/org/dcm4che/dcm4chee-arc/dcm4chee-arc-lang/ に 5.25.1 が存在しないため。&lt;/p&gt;
 
 &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4chee-arc-light/dcm4chee-arc-ui2/pom.xml&lt;/code&gt;&lt;/p&gt;
@@ -679,12 +2275,12 @@ grant all on dcm4chedb.* to `dcm4chee`;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
 &lt;h3 id=&quot;httpsgithubcomdcm4chedcm4chee-arc-lightwikiinstallationrequirements&quot;&gt;https://github.com/dcm4che/dcm4chee-arc-light/wiki/Installation#requirements&lt;/h3&gt;
-&lt;p&gt;Requirements: Java SE 8 or later - tested with OpenJDK and Oracle JDK (2022-01-19)
+&lt;p&gt;Requirements: Java SE 8 or later - tested with OpenJDK and Oracle JDK (2022-01-19)&lt;br /&gt;
 (Java 8 は JDK 1.8)&lt;/p&gt;
 
 &lt;h4 id=&quot;httpsgithubcomdcm4chedcm4che&quot;&gt;https://github.com/dcm4che/dcm4che&lt;/h4&gt;
-&lt;p&gt;コアライブラリである &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4che-core-xx.xx.xx.jar&lt;/code&gt; とユーティリティーコマンド(dcmdumpなど)を提供する。&lt;br /&gt;
-DICOM規格に関する処理を行なっている。&lt;br /&gt;
+&lt;p&gt;コアライブラリである &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4che-core-xx.xx.xx.jar&lt;/code&gt; とユーティリティーコマンド(dcmdumpなど)を提供する。  &lt;br /&gt;
+DICOM規格に関する処理を行なっている。  &lt;br /&gt;
 文字化けの原因もここ。&lt;/p&gt;
 
 &lt;h4 id=&quot;httpsgithubcomdcm4chedcm4chee-arc-light&quot;&gt;https://github.com/dcm4che/dcm4chee-arc-light&lt;/h4&gt;
@@ -694,7 +2290,7 @@ DICOM規格に関する処理を行なっている。&lt;br /&gt;
 &lt;p&gt;PACSソフトの古いやつ。気にしない。&lt;/p&gt;
 
 &lt;h4 id=&quot;httpsgithubcomdcm4chedcm4chee-xds&quot;&gt;https://github.com/dcm4che/dcm4chee-xds&lt;/h4&gt;
-&lt;p&gt;IHE(Integrating the Healthcare Enterprise)が管理するXDS(Cross Enterprise Document Sharing)規格の何か。&lt;br /&gt;
+&lt;p&gt;IHE(Integrating the Healthcare Enterprise)が管理するXDS(Cross Enterprise Document Sharing)規格の何か。  &lt;br /&gt;
 知らない。&lt;/p&gt;
 
 &lt;h2 id=&quot;dicom-の-iso-2022&quot;&gt;DICOM の ISO 2022&lt;/h2&gt;
@@ -702,12 +2298,12 @@ DICOM規格に関する処理を行なっている。&lt;br /&gt;
 &lt;h3 id=&quot;iso-2022ecma-35-エスケープシーケンス-の規格&quot;&gt;(ISO 2022≒ECMA-35) エスケープシーケンス の規格&lt;/h3&gt;
 
 &lt;blockquote&gt;
-  &lt;p&gt;https://www.ecma-international.org/wp-content/uploads/ECMA-35_6th_edition_december_1994.pdf&lt;br /&gt;
+  &lt;p&gt;https://www.ecma-international.org/wp-content/uploads/ECMA-35_6th_edition_december_1994.pdf  &lt;br /&gt;
 14.3.2 Specifications&lt;/p&gt;
 &lt;/blockquote&gt;
 
-&lt;p&gt;94文字集合(94-Set)や96-Set, 94n-Set, 96n-SetをG0, G1, G2, G3に呼び出すためのエスケープシーケンスに関する規則&lt;br /&gt;
-G0 を GL に呼び出したり(…)に関する規則&lt;br /&gt;
+&lt;p&gt;94文字集合(94-Set)や96-Set, 94n-Set, 96n-SetをG0, G1, G2, G3に呼び出すためのエスケープシーケンスに関する規則  &lt;br /&gt;
+G0 を GL に呼び出したり(…)に関する規則  &lt;br /&gt;
 DICOMではこれらの一部しか使ってはいけない。&lt;/p&gt;
 
 &lt;h3 id=&quot;dicom-6123-文字レパートリの符号化-の注釈&quot;&gt;&amp;gt;DICOM 6.1.2.3 文字レパートリの符号化 の注釈&lt;/h3&gt;
@@ -720,7 +2316,7 @@ DICOMではこれらの一部しか使ってはいけない。&lt;/p&gt;
 &lt;h3 id=&quot;iso-2022-文字コードの概要&quot;&gt;ISO 2022 文字コードの概要&lt;/h3&gt;
 
 &lt;blockquote&gt;
-  &lt;p&gt;http://web.archive.org/web/20190309025211/http://euc.jp/i18n/charcode.ja.html&lt;br /&gt;
+  &lt;p&gt;http://web.archive.org/web/20190309025211/http://euc.jp/i18n/charcode.ja.html  &lt;br /&gt;
 最終更新 1999.7.31&lt;/p&gt;
 &lt;/blockquote&gt;
 
@@ -730,43 +2326,43 @@ DICOMではこれらの一部しか使ってはいけない。&lt;/p&gt;
   &lt;p&gt;G0に96n文字集合は指示不可。しかしGLへはG1-G3を使えば(96n文字集合)呼び出し可。&lt;/p&gt;
 &lt;/blockquote&gt;
 
-&lt;p&gt;この文は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;についてのもの。DICOMではGLはG0, GRはG1と決まっている。&lt;br /&gt;
+&lt;p&gt;この文は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;についてのもの。DICOMではGLはG0, GRはG1と決まっている。  &lt;br /&gt;
 したがってDICOMのISO 2022サブセットではGLに96n文字集合は割り当てられない。&lt;/p&gt;
 
 &lt;blockquote&gt;
   &lt;p&gt;終端文字と文字集合の対応は登録制になっており、 ECMAという組織が登録簿を管理しています。&lt;/p&gt;
 &lt;/blockquote&gt;
 
-&lt;p&gt;登録簿の呼ばれ方は&lt;br /&gt;
-・&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ECMA Registry&lt;/code&gt;(探しにくい名前)&lt;br /&gt;
-・&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO国際登録簿&lt;/code&gt;(≒&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR&lt;/code&gt;≒&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO International register&lt;/code&gt;)(探しにくい名前)&lt;br /&gt;
+&lt;p&gt;登録簿の呼ばれ方は  &lt;br /&gt;
+・&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ECMA Registry&lt;/code&gt;(探しにくい名前)  &lt;br /&gt;
+・&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO国際登録簿&lt;/code&gt;(≒&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR&lt;/code&gt;≒&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO International register&lt;/code&gt;)(探しにくい名前)  &lt;br /&gt;
 正式名称: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;INTERNATIONAL REGISTER OF CODED CHARACTER SETS TO BE USED WITH ESCAPE SEQUENCES&lt;/code&gt;&lt;/p&gt;
 
-&lt;p&gt;現在(2022年)では&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;情報規格調査会(ITSCJ)&lt;/code&gt;が管理(ほぼ凍結)。&lt;br /&gt;
+&lt;p&gt;現在(2022年)では&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;情報規格調査会(ITSCJ)&lt;/code&gt;が管理(ほぼ凍結)。  &lt;br /&gt;
 ※&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;情報処理学会(IPSJ)&lt;/code&gt;の下部組織である&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;情報規格調査会(ITSCJ)&lt;/code&gt;&lt;/p&gt;
 
-&lt;p&gt;DICOM規格書内で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO Registration Number&lt;/code&gt;を示す場合は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR N&lt;/code&gt;(例:&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO-IR 13&quot;&lt;/code&gt;) という表記が使われる(ハイフンに注目)。&lt;br /&gt;
-スペースで表記される&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO 2022 IR 13&quot;&lt;/code&gt;や、アンダースコアが出現する&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO_IR 13&quot;&lt;/code&gt;といった表記は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Defined Term&lt;/code&gt;(DICOM規格の用語・キーワード)であって&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO Registration Number&lt;/code&gt;を即ち示しているわけではない。&lt;br /&gt;
+&lt;p&gt;DICOM規格書内で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO Registration Number&lt;/code&gt;を示す場合は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR N&lt;/code&gt;(例:&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO-IR 13&quot;&lt;/code&gt;) という表記が使われる(ハイフンに注目)。  &lt;br /&gt;
+スペースで表記される&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO 2022 IR 13&quot;&lt;/code&gt;や、アンダースコアが出現する&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO_IR 13&quot;&lt;/code&gt;といった表記は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Defined Term&lt;/code&gt;(DICOM規格の用語・キーワード)であって&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO Registration Number&lt;/code&gt;を即ち示しているわけではない。  &lt;br /&gt;
 これらの表記はDICOM規格(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PS3.3-Table C.12-3. Defined Terms for Single-Byte Character Sets with Code Extensions&lt;/code&gt;)を参照すると(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&quot;ISO 2022 IR 13&quot;&lt;/code&gt;が)&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 13&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;の2つを意味することが読める。&lt;/p&gt;
 
 &lt;blockquote&gt;
-  &lt;p&gt;https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html&lt;br /&gt;
+  &lt;p&gt;https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html  &lt;br /&gt;
 Table C.12-3. Defined Terms for Single-Byte Character Sets with Code Extensions&lt;/p&gt;
 &lt;/blockquote&gt;
 
 &lt;blockquote&gt;
-  &lt;p&gt;https://www.itscj-ipsj.jp/custom_contents/cms/linkfile/ISO-IR.pdf&lt;br /&gt;
+  &lt;p&gt;https://www.itscj-ipsj.jp/custom_contents/cms/linkfile/ISO-IR.pdf  &lt;br /&gt;
 2.1 94-Character graphic character sets with one Intermediate byte&lt;/p&gt;
 &lt;/blockquote&gt;
 
-&lt;p&gt;具体的な文字集合名とエスケープシーケンスの中間バイトと終端バイトの対応表がある。&lt;br /&gt;
+&lt;p&gt;具体的な文字集合名とエスケープシーケンスの中間バイトと終端バイトの対応表がある。  &lt;br /&gt;
 tag:94 set, 94n set, 96 set, 96n set&lt;/p&gt;
 
 &lt;blockquote&gt;
   &lt;p&gt;図形文字集合を中間バッファに割り当てることを「指示する(to designate)」といい、 中間バッファをGL領域に割り当てることを「呼び出す(to invoke)」といいます。&lt;/p&gt;
 &lt;/blockquote&gt;
 
-&lt;p&gt;DICOMでは invoke は禁止されている。(GLはG0固定、GRはG1固定)&lt;br /&gt;
+&lt;p&gt;DICOMでは invoke は禁止されている。(GLはG0固定、GRはG1固定)  &lt;br /&gt;
 (invokeじゃなくdesignateが禁止だったか？DICOM規格書文中にinvokeが出て来る)&lt;/p&gt;
 
 &lt;h4 id=&quot;pydicom使って文字列エンコードするプログラム仮やめた&quot;&gt;pydicom使って文字列エンコードするプログラム(仮)(やめた)&lt;/h4&gt;
@@ -778,53 +2374,53 @@ tag:94 set, 94n set, 96 set, 96n set&lt;/p&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
 &lt;h3 id=&quot;cl-gl-cr-gr-c0-c1-g0-g1&quot;&gt;CL, GL, CR, GR, (C0, C1…), (G0, G1…)&lt;/h3&gt;
-&lt;p&gt;ISO 2022でも規格される。それ以外でも使われている。&lt;br /&gt;
-CL, GL, CR, GR は8bit数値(0-255)を範囲ごとに4つに分けて名前を付けたもの。&lt;br /&gt;
-・L は left、R はright、C は control character(制御文字)、G は graphic character(表示文字)。&lt;br /&gt;
-・左側とは 0x00 - 0x7F (8bit目が0である範囲)、右側とは 0x80 - 0xFF(8bit目が1である範囲)&lt;br /&gt;
-・制御用（CL control left）: 0x00 - 0x1F&lt;br /&gt;
-・図形用（GL graphic left）: 0x20 - 0x7F&lt;br /&gt;
-・制御用（CR control right）: 0x80 - 0x9F&lt;br /&gt;
+&lt;p&gt;ISO 2022でも規格される。それ以外でも使われている。  &lt;br /&gt;
+CL, GL, CR, GR は8bit数値(0-255)を範囲ごとに4つに分けて名前を付けたもの。  &lt;br /&gt;
+・L は left、R はright、C は control character(制御文字)、G は graphic character(表示文字)。  &lt;br /&gt;
+・左側とは 0x00 - 0x7F (8bit目が0である範囲)、右側とは 0x80 - 0xFF(8bit目が1である範囲)  &lt;br /&gt;
+・制御用（CL control left）: 0x00 - 0x1F  &lt;br /&gt;
+・図形用（GL graphic left）: 0x20 - 0x7F  &lt;br /&gt;
+・制御用（CR control right）: 0x80 - 0x9F  &lt;br /&gt;
 ・図形用（GR graphic right）: 0xA0 - 0xFF&lt;/p&gt;
 
-&lt;p&gt;図形用範囲にSpaceを含んだり含まなかったり、Deleteを含んだり含まなかったりで(GLとGRの)定義が揺れる。&lt;br /&gt;
-図形だとか制御だとか言っているのは、そういう意味を持った機能をその数値に割り当て使うという意味。&lt;br /&gt;
+&lt;p&gt;図形用範囲にSpaceを含んだり含まなかったり、Deleteを含んだり含まなかったりで(GLとGRの)定義が揺れる。  &lt;br /&gt;
+図形だとか制御だとか言っているのは、そういう意味を持った機能をその数値に割り当て使うという意味。  &lt;br /&gt;
 図形なら図形と文字を表示するために、制御なら特殊制御用に(バイナリ列に現れても0幅であるようなもの)。&lt;/p&gt;
 
 &lt;p&gt;CL,CR,GL,GR が数値範囲を示すのに対して、(…)&lt;/p&gt;
 
-&lt;p&gt;ISO 2022では C0 は常にCLに対応しているため区別する必要がない。&lt;br /&gt;
+&lt;p&gt;ISO 2022では C0 は常にCLに対応しているため区別する必要がない。  &lt;br /&gt;
 C1 は CR に常に対応しているため区別する必要がない。&lt;/p&gt;
 
-&lt;p&gt;DICOMにおけるISO 2022(サブセット)では&lt;br /&gt;
-G0は常にGLに対応するため区別する必要がない。&lt;br /&gt;
+&lt;p&gt;DICOMにおけるISO 2022(サブセット)では  &lt;br /&gt;
+G0は常にGLに対応するため区別する必要がない。  &lt;br /&gt;
 G1は常にGRに対応するため区別する必要がない。&lt;/p&gt;
 
 &lt;h3 id=&quot;dcm4cheのエンコードデコード実装&quot;&gt;dcm4cheのエンコード/デコード実装&lt;/h3&gt;
-&lt;p&gt;github上にある一番古い実装。あまり変わってない。&lt;br /&gt;
-https://github.com/dcm4che/dcm4che/blob/b0b99302c1858948bd368e877b9a08e845b3d8bf/dcm4che-core/src/main/java/org/dcm4che3/data/SpecificCharacterSet.java&lt;br /&gt;
-https://github.com/dcm4che/dcm4che/blob/b0b99302c1858948bd368e877b9a08e845b3d8bf/dcm4che-core/src/test/java/org/dcm4che3/data/SpecificCharacterSetTest.java&lt;br /&gt;
-テストセットはたぶん規格書から取って来たもの。&lt;br /&gt;
+&lt;p&gt;github上にある一番古い実装。あまり変わってない。  &lt;br /&gt;
+https://github.com/dcm4che/dcm4che/blob/b0b99302c1858948bd368e877b9a08e845b3d8bf/dcm4che-core/src/main/java/org/dcm4che3/data/SpecificCharacterSet.java  &lt;br /&gt;
+https://github.com/dcm4che/dcm4che/blob/b0b99302c1858948bd368e877b9a08e845b3d8bf/dcm4che-core/src/test/java/org/dcm4che3/data/SpecificCharacterSetTest.java  &lt;br /&gt;
+テストセットはたぶん規格書から取って来たもの。  &lt;br /&gt;
 The reason why “yamada-tarou” test worked well was because switched the character set at the same time as the delimiter.&lt;/p&gt;
 
 &lt;h3 id=&quot;dcm4chespecificcharactersettestjava&quot;&gt;dcm4che/**/SpecificCharacterSetTest.java&lt;/h3&gt;
 &lt;p&gt;Japanese, Korean, Chinese 以外ではエスケープシーケンスが出現しない。&lt;/p&gt;
 
 &lt;h3 id=&quot;dicomに関する半角カナは使わない&quot;&gt;DICOMに関する「半角カナは使わない」&lt;/h3&gt;
-&lt;p&gt;およそ2010年までの文書に多い。&lt;br /&gt;
-読むための処理を書く側には関係がない。&lt;br /&gt;
+&lt;p&gt;およそ2010年までの文書に多い。  &lt;br /&gt;
+読むための処理を書く側には関係がない。  &lt;br /&gt;
 DICOMのISO 2022サブセット規格に大きな不備があるわけではない(実運用上の不備はあるが)。&lt;/p&gt;
 
 &lt;h3 id=&quot;dicom規格書日本語訳&quot;&gt;DICOM規格書日本語訳&lt;/h3&gt;
-&lt;p&gt;文字コードに関する部分&lt;br /&gt;
-https://www.jira-net.or.jp/dicom/file/standard/DICOM_PS3.5j_2009_ref.pdf&lt;br /&gt;
-英語&lt;br /&gt;
-https://dicom.nema.org/medical/dicom/2021e/output/html/part05.html&lt;br /&gt;
+&lt;p&gt;文字コードに関する部分  &lt;br /&gt;
+https://www.jira-net.or.jp/dicom/file/standard/DICOM_PS3.5j_2009_ref.pdf  &lt;br /&gt;
+英語  &lt;br /&gt;
+https://dicom.nema.org/medical/dicom/2021e/output/html/part05.html  &lt;br /&gt;
 https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html&lt;/p&gt;
 
 &lt;h3 id=&quot;code-extension-techniques-符号拡張技術&quot;&gt;Code Extension Techniques: 符号拡張技術&lt;/h3&gt;
-&lt;p&gt;ISO 2022のバッファへ文字集合を指示する(to designate)ことや、バッファをGLやGRに呼び出す(to invoke)こと。&lt;br /&gt;
-そのエスケープシーケンスのこと。&lt;br /&gt;
+&lt;p&gt;ISO 2022のバッファへ文字集合を指示する(to designate)ことや、バッファをGLやGRに呼び出す(to invoke)こと。  &lt;br /&gt;
+そのエスケープシーケンスのこと。  &lt;br /&gt;
 DICOMでは&lt;/p&gt;
 
 &lt;ul&gt;
@@ -842,37 +2438,37 @@ DICOMでは&lt;/p&gt;
 &lt;p&gt;DICOMで使ってもいいエスケープシーケンスの表は以下&lt;/p&gt;
 
 &lt;blockquote&gt;
-  &lt;p&gt;https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html&lt;br /&gt;
+  &lt;p&gt;https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html  &lt;br /&gt;
 Table C.12-3. Defined Terms for Single-Byte Character Sets with Code Extensions&lt;/p&gt;
 &lt;/blockquote&gt;
 
 &lt;h3 id=&quot;属性特定文字集合-00080005が単一値である場合のg0とg1の状態&quot;&gt;属性特定文字集合 (0008,0005)が単一値である場合のG0とG1の状態&lt;/h3&gt;
-&lt;p&gt;(※属性特定文字集合が単一値である場合、文字集合の切り替えは行えない)&lt;br /&gt;
-(※DICOMではGLはG0固定、GRはG1固定)&lt;br /&gt;
-属性特定文字集合が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR_13&lt;/code&gt;の単独値である場合、(字面に反して)&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR 13&lt;/code&gt;(カナ)と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR 14&lt;/code&gt;(Romaji(ほぼASCII))の2つの文字種が利用できる。&lt;br /&gt;
-そして&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 14&lt;/code&gt;(Romaji)は必ず&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;に、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 13&lt;/code&gt;(カナ)は必ず&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1&lt;/code&gt;に割り当てられる。&lt;br /&gt;
+&lt;p&gt;(※属性特定文字集合が単一値である場合、文字集合の切り替えは行えない)  &lt;br /&gt;
+(※DICOMではGLはG0固定、GRはG1固定)  &lt;br /&gt;
+属性特定文字集合が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR_13&lt;/code&gt;の単独値である場合、(字面に反して)&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR 13&lt;/code&gt;(カナ)と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO IR 14&lt;/code&gt;(Romaji(ほぼASCII))の2つの文字種が利用できる。  &lt;br /&gt;
+そして&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 14&lt;/code&gt;(Romaji)は必ず&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;に、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 13&lt;/code&gt;(カナ)は必ず&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1&lt;/code&gt;に割り当てられる。  &lt;br /&gt;
 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;がカナで&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1&lt;/code&gt;がRomajiになったりはしない(ISO 2022ではこの状態は合法)。&lt;/p&gt;
 
 &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;単独値&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;利用できる文字種&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0/G1への割り当て&lt;/code&gt;は以下に規格される。&lt;/p&gt;
 
 &lt;blockquote&gt;
-  &lt;p&gt;https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html&lt;br /&gt;
+  &lt;p&gt;https://dicom.nema.org/medical/dicom/2021e/output/html/part03.html  &lt;br /&gt;
 DICOM PS3.3-Table C.12-2. Defined Terms for Single-Byte Character Sets Without Code Extensions&lt;/p&gt;
 &lt;/blockquote&gt;
 
 &lt;h3 id=&quot;note-to-use-the-single-byte-code-table-of-jis-x0201&quot;&gt;Note: To use the single-byte code table of JIS X0201…&lt;/h3&gt;
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DICOM PS3.3-C.12.1.1.2 Specific Character Set&lt;/code&gt; の &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Note&lt;/code&gt;&lt;br /&gt;
-なぜわざわざ&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X0201&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 13&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 14&lt;/code&gt;に言及しているのか&lt;br /&gt;
-何を読みとるべきか分からない&lt;br /&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DICOM PS3.3-C.12.1.1.2 Specific Character Set&lt;/code&gt; の &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Note&lt;/code&gt;  &lt;br /&gt;
+なぜわざわざ&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X0201&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 13&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IR 14&lt;/code&gt;に言及しているのか  &lt;br /&gt;
+何を読みとるべきか分からない  &lt;br /&gt;
 ただ単に&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 6&lt;/code&gt;じゃないの気をつけてってことだろうか&lt;/p&gt;
 
 &lt;h3 id=&quot;属性特定文字集合-00080005が複数値である場合のg0とg1の状態&quot;&gt;属性特定文字集合 (0008,0005)が複数値である場合のG0とG1の状態&lt;/h3&gt;
-&lt;p&gt;ここでも&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;がカナで&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1&lt;/code&gt;がRomajiになったりはしない。&lt;br /&gt;
+&lt;p&gt;ここでも&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0&lt;/code&gt;がカナで&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G1&lt;/code&gt;がRomajiになったりはしない。  &lt;br /&gt;
 初期状態に関しては&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;値 1&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;文字レパートリ&lt;/code&gt;の話を参照。&lt;/p&gt;
 
 &lt;h3 id=&quot;文字レパートリcharacter-repertoireと文字集合character-set&quot;&gt;「文字レパートリ(Character Repertoire)」と「文字集合(Character Set)」&lt;/h3&gt;
-&lt;p&gt;この使い分けはDICOM規格での話。&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;は1つあるいは2つの&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;を持つ。&lt;br /&gt;
+&lt;p&gt;この使い分けはDICOM規格での話。  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;は1つあるいは2つの&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;を持つ。  &lt;br /&gt;
 規格書内で &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Repertoire&lt;/code&gt; と &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Set&lt;/code&gt; の使い分けは徹底されていないが以下の2つは言える。&lt;/p&gt;
 
 &lt;ul&gt;
@@ -884,33 +2480,33 @@ DICOM PS3.3-Table C.12-2. Defined Terms for Single-Byte Character Sets Without C
   &lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;に指定できるものは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;。&lt;br /&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Specific Character Set (0008,0005)&lt;/code&gt;に指定できるものは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;。  &lt;br /&gt;
 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 6&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 100&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 13&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 87&lt;/code&gt;といったものは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;。だが&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;と表現されることの方が多い。&lt;/p&gt;
 
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 6&lt;/code&gt;指定によって利用可能になる&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 646&lt;/code&gt;(ASCII)は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;。&lt;br /&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 6&lt;/code&gt;指定によって利用可能になる&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 646&lt;/code&gt;(ASCII)は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;。  &lt;br /&gt;
 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 IR 13&lt;/code&gt;指定によって利用可能になる&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 13&lt;/code&gt;(Katakana)と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;(Romaji)は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;。&lt;/p&gt;
 
-&lt;p&gt;さらに紛らわしいことに規格書には(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Repertoire&lt;/code&gt;ではない)&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;として&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO/IEC 8859-1&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;TIS 620-2533&lt;/code&gt;などが現れる。&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;(Romaji)をGL(G0)に、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;(Katakana)をGR(G1)に持つ規格である。&lt;br /&gt;
-DICOM規格書では文脈や表の位置に応じて「&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;」を「&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0側&lt;/code&gt;」のように読み替える必要がある。&lt;br /&gt;
-決してG0側でRomajiとKatakana(半角カナ)両方が使えるようになったりはしない&lt;br /&gt;
-(決してG1側でRomajiとKatakana(半角カナ)両方が使えるようになったりはしない)&lt;br /&gt;
+&lt;p&gt;さらに紛らわしいことに規格書には(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Repertoire&lt;/code&gt;ではない)&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;として&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO/IEC 8859-1&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;TIS 620-2533&lt;/code&gt;などが現れる。  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;(Romaji)をGL(G0)に、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO-IR 14&lt;/code&gt;(Katakana)をGR(G1)に持つ規格である。  &lt;br /&gt;
+DICOM規格書では文脈や表の位置に応じて「&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;」を「&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;JIS X 0201&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;G0側&lt;/code&gt;」のように読み替える必要がある。  &lt;br /&gt;
+決してG0側でRomajiとKatakana(半角カナ)両方が使えるようになったりはしない  &lt;br /&gt;
+(決してG1側でRomajiとKatakana(半角カナ)両方が使えるようになったりはしない)  &lt;br /&gt;
 DICOMはエスケープシーケンスを制限することでそれを禁止してる。&lt;/p&gt;
 
 &lt;blockquote&gt;
-  &lt;p&gt;https://dicom.nema.org/medical/dicom/2021e/output/html/part05.html&lt;br /&gt;
-6.1.2 Graphic Characters&lt;br /&gt;
+  &lt;p&gt;https://dicom.nema.org/medical/dicom/2021e/output/html/part05.html  &lt;br /&gt;
+6.1.2 Graphic Characters  &lt;br /&gt;
 A Character Repertoire, or character set, is a collection of Graphic Characters specified independently of their encoding.&lt;/p&gt;
 &lt;/blockquote&gt;
 
 &lt;h3 id=&quot;dicomデフォルト文字レパートリ&quot;&gt;DICOMデフォルト文字レパートリ&lt;/h3&gt;
-&lt;p&gt;ISO 646:1990(ISO-IR 6: ASCII) のこと&lt;br /&gt;
-G0側にこれが割り当てられる。
+&lt;p&gt;ISO 646:1990(ISO-IR 6: ASCII) のこと  &lt;br /&gt;
+G0側にこれが割り当てられる。&lt;br /&gt;
 G1側は初期状態では空っぽ。&lt;/p&gt;
 
 &lt;h3 id=&quot;属性特定文字集合-00080005-の値-1-value-1-of-attribute-specific-character-set-00080005&quot;&gt;属性特定文字集合 (0008,0005) の値 1: Value 1 of Attribute Specific Character Set (0008,0005)&lt;/h3&gt;
-&lt;p&gt;「最初の」ということ&lt;br /&gt;
-これは序数。&lt;br /&gt;
+&lt;p&gt;「最初の」ということ  &lt;br /&gt;
+これは序数。  &lt;br /&gt;
 値 0という値は存在しない、そんな場所も存在しない。&lt;/p&gt;
 
 &lt;ul&gt;
@@ -923,13 +2519,13 @@ G1側は初期状態では空っぽ。&lt;/p&gt;
 &lt;/ul&gt;
 
 &lt;h3 id=&quot;用語-属性特定文字集合-00080005-の値-1-で明記される文字集合の他の文字集合が呼び出されている場合には&quot;&gt;用語: &amp;gt;属性特定文字集合 (0008,0005) の値 1 で明記される文字集合の他の文字集合…が呼び出されている場合には〜&lt;/h3&gt;
-&lt;p&gt;※上記表現は日本語翻訳版( https://www.jira-net.or.jp/dicom/file/standard/DICOM_PS3.5j_2009_ref.pdf )のもの&lt;br /&gt;
-原文は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;a character set other than the one specified in value 1 of the Attribute Specific Character Set (0008,0005), ..., has been invoked&lt;/code&gt;&lt;br /&gt;
-「値 1以外が呼び出されている時は」と読み替えていい。&lt;br /&gt;
+&lt;p&gt;※上記表現は日本語翻訳版( https://www.jira-net.or.jp/dicom/file/standard/DICOM_PS3.5j_2009_ref.pdf )のもの  &lt;br /&gt;
+原文は &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;a character set other than the one specified in value 1 of the Attribute Specific Character Set (0008,0005), ..., has been invoked&lt;/code&gt;  &lt;br /&gt;
+「値 1以外が呼び出されている時は」と読み替えていい。  &lt;br /&gt;
 (呼び出す(invoke)はISO 2022用語で、おおよそ「Aを呼び出す」は「キャラクターセットであるAを利用すること」の意味※厳密には違う)&lt;/p&gt;
 
-&lt;p&gt;この文の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;のこと。&lt;br /&gt;
-だから実例は3パターンに分かれる。以下&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Repertoire&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Set&lt;/code&gt;を区別して書く。&lt;br /&gt;
+&lt;p&gt;この文の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Set&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;のこと。  &lt;br /&gt;
+だから実例は3パターンに分かれる。以下&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Repertoire&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Set&lt;/code&gt;を区別して書く。  &lt;br /&gt;
 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;値 1&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Character Repertoire&lt;/code&gt;が&lt;/p&gt;
 
 &lt;ol&gt;
@@ -945,13 +2541,13 @@ G1側は初期状態では空っぽ。&lt;/p&gt;
 &lt;/ol&gt;
 
 &lt;h3 id=&quot;dicomはiso-2022のサブセットを使う&quot;&gt;DICOMはISO 2022のサブセットを使う&lt;/h3&gt;
-&lt;p&gt;ISO 2022規格のうち(エンコードに関する)いくつかのエスケープシーケンスを禁止しているという意味。&lt;br /&gt;
-DICOM規格でエンコードした文字列はISO 2022デコーダーでデコードできるといいなということ。&lt;br /&gt;
-しかし以下の理由でデコードが出来るとは限らない。&lt;br /&gt;
-ISO 2022自体がバイナリ列に表現されない了解によって初期状態を決めてよいと規格している。&lt;br /&gt;
-暗黙のエスケープシーケンスがバイナリ列開始の前に存在しているみたいなこと。&lt;br /&gt;
-この暗黙の了解はDICOMでは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;属性特定文字集合 (0008, 0005)&lt;/code&gt;によって決まる&lt;br /&gt;
-また区切り文字(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;CR&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LF&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;FF&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;^&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;\\&lt;/code&gt; , &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;=&lt;/code&gt;)で文字集合の呼び出し状態が変わる。&lt;br /&gt;
+&lt;p&gt;ISO 2022規格のうち(エンコードに関する)いくつかのエスケープシーケンスを禁止しているという意味。  &lt;br /&gt;
+DICOM規格でエンコードした文字列はISO 2022デコーダーでデコードできるといいなということ。  &lt;br /&gt;
+しかし以下の理由でデコードが出来るとは限らない。  &lt;br /&gt;
+ISO 2022自体がバイナリ列に表現されない了解によって初期状態を決めてよいと規格している。  &lt;br /&gt;
+暗黙のエスケープシーケンスがバイナリ列開始の前に存在しているみたいなこと。  &lt;br /&gt;
+この暗黙の了解はDICOMでは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;属性特定文字集合 (0008, 0005)&lt;/code&gt;によって決まる  &lt;br /&gt;
+また区切り文字(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;CR&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LF&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;FF&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;^&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;\\&lt;/code&gt; , &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;=&lt;/code&gt;)で文字集合の呼び出し状態が変わる。  &lt;br /&gt;
 (※何が区切り文字かはDICOM属性ごとに変わる)&lt;/p&gt;
 
 &lt;h3 id=&quot;用語-実装水準implementation-level&quot;&gt;用語: 実装水準(Implementation level)&lt;/h3&gt;
@@ -968,7 +2564,7 @@ ISO 2022自体がバイナリ列に表現されない了解によって初期状
     &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Implementation level: [ISO/IEC 2022] Level 4 - Redesignation of Graphic Character Sets within a Code (code-level identifier 14)&lt;/code&gt;&lt;/p&gt;
   &lt;/li&gt;
   &lt;li&gt;
-    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;実装水準： ISO/IEC 2022 水準 1－基本 7 ビット符号（符号水準識別子 1） &lt;/code&gt;&lt;br /&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;実装水準： ISO/IEC 2022 水準 1－基本 7 ビット符号（符号水準識別子 1） &lt;/code&gt;  &lt;br /&gt;
 とか書いてあるものが何か。&lt;/p&gt;
   &lt;/li&gt;
 &lt;/ul&gt;
@@ -976,21 +2572,21 @@ ISO 2022自体がバイナリ列に表現されない了解によって初期状
 &lt;p&gt;まず&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Level 1 Elementary 7-bit code&lt;/code&gt;や&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Level 4 Redesignation of Graphic Character Sets within a Code&lt;/code&gt;が示すものはこれ&lt;/p&gt;
 
 &lt;blockquote&gt;
-  &lt;p&gt;https://www.ecma-international.org/wp-content/uploads/ECMA-35_6th_edition_december_1994.pdf&lt;br /&gt;
+  &lt;p&gt;https://www.ecma-international.org/wp-content/uploads/ECMA-35_6th_edition_december_1994.pdf  &lt;br /&gt;
 ISO 2022/ECMA-35: 10 Versions and levels of implementation&lt;/p&gt;
 &lt;/blockquote&gt;
 
-&lt;p&gt;ECMA-35規格書では bit数→実装概要 の順で書いてある。&lt;br /&gt;
-(10.3.1 8-bit codes): Level 1 - Elementary 8-bit Code&lt;br /&gt;
-(10.3.1 8-bit codes): Level 4 - Redesignation of Graphic Character Sets Within a Code&lt;br /&gt;
+&lt;p&gt;ECMA-35規格書では bit数→実装概要 の順で書いてある。  &lt;br /&gt;
+(10.3.1 8-bit codes): Level 1 - Elementary 8-bit Code  &lt;br /&gt;
+(10.3.1 8-bit codes): Level 4 - Redesignation of Graphic Character Sets Within a Code  &lt;br /&gt;
 (10.3.3 7-bit codes): Level 1 - Elementary 7-bit Code&lt;/p&gt;
 
-&lt;p&gt;次に &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;code-level identifier N&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;符号水準識別子&lt;/code&gt; なるもの&lt;br /&gt;
-Nが示すのは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ECMA-35: 15.2.2 Specification: Table 7 Code Structure Facilities for the Announcer Function (ACS)&lt;/code&gt;の &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Facility Number&lt;/code&gt;のこと。&lt;br /&gt;
+&lt;p&gt;次に &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;code-level identifier N&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;符号水準識別子&lt;/code&gt; なるもの  &lt;br /&gt;
+Nが示すのは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ECMA-35: 15.2.2 Specification: Table 7 Code Structure Facilities for the Announcer Function (ACS)&lt;/code&gt;の &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Facility Number&lt;/code&gt;のこと。  &lt;br /&gt;
 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;code-level&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;implementation level&lt;/code&gt;はほぼ同義語&lt;/p&gt;
 
 &lt;blockquote&gt;
-  &lt;p&gt;Facility Number 1: 04/01 The G0 code element shall be used. Designation of G0 also invokes it into the GL area. No locking-shift functions shall be used.
+  &lt;p&gt;Facility Number 1: 04/01 The G0 code element shall be used. Designation of G0 also invokes it into the GL area. No locking-shift functions shall be used.&lt;br /&gt;
 In 8-bit code: the GR area is not used. (*)&lt;/p&gt;
 &lt;/blockquote&gt;
 
@@ -1002,15 +2598,15 @@ In 8-bit code: the GR area is not used. (*)&lt;/p&gt;
   &lt;p&gt;Facility Number 14: 04/14 Level 3 of ECMA-43 shall be used.&lt;/p&gt;
 &lt;/blockquote&gt;
 
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;gt;ECMA-43の水準3を使います&lt;/code&gt;またもや参照。&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ECMA-43&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873: 8‐Bit Coded Character Set Structure and Rules&lt;/code&gt;と同義&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt; で使う文字集合を作るため使うための規格&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;にも&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Implementation level&lt;/code&gt;なる用語が出るがそれは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;と同じ意味のものだが(…)&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 code-level identifier 12&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873 level 1&lt;/code&gt;&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 code-level identifier 13&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873 level 2&lt;/code&gt;&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 code-level identifier 14&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873 level 3&lt;/code&gt;&lt;br /&gt;
-にそれぞれ紐づく。&lt;br /&gt;
-(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;を使う時は、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;code-level&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;のlevelが決まる(たぶん)。&lt;br /&gt;
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;gt;ECMA-43の水準3を使います&lt;/code&gt;またもや参照。  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ECMA-43&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873: 8‐Bit Coded Character Set Structure and Rules&lt;/code&gt;と同義  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt; で使う文字集合を作るため使うための規格  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;にも&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Implementation level&lt;/code&gt;なる用語が出るがそれは&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;と同じ意味のものだが(…)  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 code-level identifier 12&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873 level 1&lt;/code&gt;  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 code-level identifier 13&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873 level 2&lt;/code&gt;  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022 code-level identifier 14&lt;/code&gt;は&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873 level 3&lt;/code&gt;  &lt;br /&gt;
+にそれぞれ紐づく。  &lt;br /&gt;
+(&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;を使う時は、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;の&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;code-level&lt;/code&gt;で&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;のlevelが決まる(たぶん)。  &lt;br /&gt;
 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 2022&lt;/code&gt;以外が&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ISO 4873&lt;/code&gt;を使う時は知らない)&lt;/p&gt;
 
 &lt;h3 id=&quot;書くのに使うemacs-lisp&quot;&gt;書くのに使うemacs lisp&lt;/h3&gt;
@@ -1061,7 +2657,7 @@ In 8-bit code: the GR area is not used. (*)&lt;/p&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
 &lt;h4 id=&quot;-4&quot;&gt;(???)&lt;/h4&gt;
-&lt;p&gt;第1表現&lt;br /&gt;
+&lt;p&gt;第1表現  &lt;br /&gt;
   ESC: エスケープシーケンス開始&lt;/p&gt;
 
 &lt;p&gt;第2表現(中間)&lt;/p&gt;
@@ -1111,7 +2707,7 @@ In 8-bit code: the GR area is not used. (*)&lt;/p&gt;
 &lt;h3 id=&quot;java-stringgetbytes-エンコーダー&quot;&gt;java String::getBytes エンコーダー&lt;/h3&gt;
 &lt;p&gt;javaのエンコーダーは &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dcm4che/**/SpecificCharacterSet.java&lt;/code&gt; の requirement を満たしているように見える&lt;/p&gt;
 
-&lt;p&gt;“ISO-8859-1”, “ISO-8859-2”, “ISO-8859-3”, “ISO-8859-4”, “ISO-8859-5”, “ISO-8859-6”, “ISO-8859-7”, “ISO-8859-8”, “ISO-8859-9”&lt;br /&gt;
+&lt;p&gt;“ISO-8859-1”, “ISO-8859-2”, “ISO-8859-3”, “ISO-8859-4”, “ISO-8859-5”, “ISO-8859-6”, “ISO-8859-7”, “ISO-8859-8”, “ISO-8859-9”  &lt;br /&gt;
 G1文字はすべて0x80以上&lt;/p&gt;
 
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;if (allG1(&quot;　、。·‥…¨〃­―∥＼∼‘’가각간갇갈갉갊감갑값갓갔강갖갗嬉希憙憘戱晞曦熙熹熺犧禧稀羲詰&quot;.getBytes(&quot;EUC-KR&quot;))) {
@@ -1142,7 +2738,7 @@ popnet:
 
 &lt;h4 id=&quot;dcm4chespecificcharactersetjava-変更メモ&quot;&gt;dcm4che/**/SpecificCharacterSet.java 変更メモ&lt;/h4&gt;
 
-&lt;p&gt;DICOMではISO-IRごとにG0に指示できるかG1に指示できるかの制約がある。&lt;br /&gt;
+&lt;p&gt;DICOMではISO-IRごとにG0に指示できるかG1に指示できるかの制約がある。  &lt;br /&gt;
 コードの属性に関する記述を抜粋&lt;/p&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;ISO_646(true, 0x2842, 0, 1),
 ISO_8859_1(true, 0x2842, 0x2d41, 1),
@@ -1165,9 +2761,9 @@ GB18030(false, 0, 0, -1);
 
 Codec(boolean containsASCII, int escSeq0, int escSeq1, int bytesPerChar)
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;escSeq0 とは G0 に割り当てる時のエスケープシーケンス。&lt;br /&gt;
-escSeq1 とは G1 に割り当てる時のエスケープシーケンス。&lt;br /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;KS_X_1001&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;GB2312&lt;/code&gt;に同じ誤りあり。どちらもG1に割り当てられる目的でしかDICOMでは使われない。&lt;br /&gt;
+&lt;p&gt;escSeq0 とは G0 に割り当てる時のエスケープシーケンス。  &lt;br /&gt;
+escSeq1 とは G1 に割り当てる時のエスケープシーケンス。  &lt;br /&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;KS_X_1001&lt;/code&gt;と&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;GB2312&lt;/code&gt;に同じ誤りあり。どちらもG1に割り当てられる目的でしかDICOMでは使われない。  &lt;br /&gt;
 &lt;em&gt;変更&lt;/em&gt;&lt;/p&gt;
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;KS_X_1001(false, 0, 0x242943, -1),
 GB2312(false, 0, 0x242941, -1),
@@ -1190,17 +2786,17 @@ Character String (with CR LF after each line):
     0x32 0x2e 0x1B 0x24 0x29 0x41 0xB5 0xDA 0xB6 0xFE 0xD0 0xD0 0xCE 0xC4 0xD7 0xD6 0xA1 0xA3 0x0D 0x0A
     0x33 0x2e 0x1B 0x24 0x29 0x41 0xB5 0xDA 0xC8 0xFD 0xD0 0xD0 0xCE 0xC4 0xD7 0xD6 0xA1 0xA3 0x0D 0x0A
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;”)” は 0x29 だが上記には 0x2e 、それは ASCII の dot “.”&lt;br /&gt;
-規格に誤りあり。
+&lt;p&gt;”)” は 0x29 だが上記には 0x2e 、それは ASCII の dot “.”  &lt;br /&gt;
+規格に誤りあり。&lt;br /&gt;
 Encoded String側を修正してTestへ。&lt;/p&gt;
 
 &lt;h3 id=&quot;korean_long_text&quot;&gt;KOREAN_LONG_TEXT&lt;/h3&gt;
 &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;gt;Example I.3-1. Example of Long Text Value Representation in the Korean Language Without Explicit Escape Sequences Between Character Sets&lt;/code&gt;&lt;/p&gt;
 
-&lt;p&gt;古い
+&lt;p&gt;古い&lt;br /&gt;
 [1b 24 29 43] 54 68 65 20 31 73 74 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 b1 e6 b5 bf 2e [0d 0a] [1b 24 29 43] 54 68 65 20 32 6e 64 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 b1 e6 b5 bf 2c 20 74 6f 6f 2e 0d 0a 54 68 65 20 33 72 64 20 6c 69 6e 65 2e&lt;/p&gt;
 
-&lt;p&gt;新しい
+&lt;p&gt;新しい&lt;br /&gt;
 54 68 65 20 31 73 74 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 [1b 24 29 43] b1 e6 b5 bf 2e [0d 0a] 54 68 65 20 32 6e 64 20 6c 69 6e 65 20 69 6e 63 6c 75 64 65 73 20 [1b 24 29 43] b1 e6 b5 bf 2c 20 74 6f 6f 2e 0d 0a 54 68 65 20 33 72 64 20 6c 69 6e 65 2e&lt;/p&gt;
 
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Fix #976 : ISO 2022 text encoding issue

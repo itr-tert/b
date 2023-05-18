@@ -14,7 +14,7 @@ dcm4che / DICOM / ISO 2022 / 日本語処理
 `dcm4che` や `dcm4chee-arc-light` で `"あaあ"` みたいに全角→半角→全角の時に文字化けする不具合があります。  
 
 ~~直したものを本家 https://github.com/dcm4che/dcm4che にpull request してますが放置され中なんで修正版を配布します。~~  
-マージされました(2022-02-12)。  
+本家にマージされました(2022-02-12)。  
 5.25.1以前のバージョンに適用するための修正版ファイルを配布します。
 
 [ダウンロード](https://github.com/itr-tert/dcm4che-modmojibake-download)

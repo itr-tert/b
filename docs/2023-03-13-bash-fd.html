@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>bashのFD(file descriptor)操作について | メモ束</title>
+<meta name="generator" content="Jekyll v3.9.0" />
+<meta property="og:title" content="bashのFD(file descriptor)操作について" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="-" />
+<meta property="og:description" content="-" />
+<link rel="canonical" href="https://itr-tert.github.io/note/2023-03-13-bash-fd.html" />
+<meta property="og:url" content="https://itr-tert.github.io/note/2023-03-13-bash-fd.html" />
+<meta property="og:site_name" content="メモ束" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2023-03-13T00:00:00+09:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="bashのFD(file descriptor)操作について" />
+<script type="application/ld+json">
+{"headline":"bashのFD(file descriptor)操作について","dateModified":"2023-03-13T00:00:00+09:00","datePublished":"2023-03-13T00:00:00+09:00","description":"-","url":"https://itr-tert.github.io/note/2023-03-13-bash-fd.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://itr-tert.github.io/note/2023-03-13-bash-fd.html"},"@type":"BlogPosting","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/note/assets/css/styles.css"><link type="application/atom+xml" rel="alternate" href="https://itr-tert.github.io/note/feed.xml" title="メモ束" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/note/">メモ束</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">bashのFD(file descriptor)操作について</h1>
+    <p class="post-meta">
+      公開:<time class="dt-published" datetime="2023-03-13T00:00:00+09:00" itemprop="datePublished">2023-03-13
+      </time>/ 更新:<time class="dt-modified" datetime="2023-05-19T00:00:00+09:00" itemprop="dateMOdified">
+          2023-05-19
+        </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    
+    
+    <ul><li><a href="#前置き">前置き</a></li><li><a href="#よく使われる例">よく使われる例 <code>&gt;</code></a></li><li><a href="#よく使われる例-2">よく使われる例 <code>&amp;&gt;</code></a></li><li><a href="#の用例"><code>&amp;</code>​の用例</a></li><li><a href="#の曖昧動作"><code>&gt;&amp;</code>​の曖昧動作</a></li><li><a href="#redirection-operators-の名前">Redirection Operators の名前</a></li><li><a href="#右辺にファイルを指定するoperatorの構文解析の特性">右辺にファイルを指定する​<code>Operator</code>​の構文解析の特性</a></li><li><a href="#左辺と右辺で使われている-012-という数字の意味">左辺(と右辺)で使われている 0,1,2 という数字の意味</a></li><li><a href="#よくある例-command-1-all_log-txt-21">よくある例 <code>command  1&gt; all_log.txt  2&gt;&amp;1</code></a></li><li><a href="#標準入力に書き込む">標準入力に書き込む</a></li><li><a href="#ファイルを開く操作とfile-descriptor操作の区別">ファイルを開く操作と​<code>file descriptor操作</code>​の区別</a></li><li><a href="#fd操作の寿命"><code>FD</code>​操作の寿命</a></li><li><a href="#execによるfile-descriptor操作の永続化"><code>exec</code>​による​<code>file descriptor操作</code>​の永続化</a></li></ul>
+    <div class="sect1">
+<h2 id="前置き">前置き</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>ここが分かりやすい。</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>Author: @ueokande<br>
+Title: シェルとファイルデスクリプタのお話<br>
+Date: 2016年12月01日<br>
+<a href="https://qiita.com/ueokande/items/c75de7c9df2bcceda7a9" class="bare">https://qiita.com/ueokande/items/c75de7c9df2bcceda7a9</a></p>
+</div>
+</blockquote>
+</div>
+<div class="paragraph">
+<p>リンク先文書や他文書を読んでも分からない人をターゲットに、各操作の分類と誤認識の修正を焦点に書く。<br>
+冗長なので斜め読み推奨。</p>
+</div>
+<div class="admonitionblock caution">
+<table>
+<tr>
+<td class="icon">
+<div class="title">！</div>
+</td>
+<td class="content">
+この文書の説明は​<code>bash</code>​を対象にした説明であることに注意。<br>
+他のシェルではしばしば上手く動かない。
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="よく使われる例">よく使われる例 <code>&gt;</code></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>&gt;</code>(less-than sign)による​<code>Redirecting Output</code></p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> ok &gt; result.txt</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>result.txt</code>​には​<code>"ok"</code>​が入る。</p>
+</div>
+<div class="sect2">
+<h3 id="リダイレクト操作配置の自由度">リダイレクト操作配置の自由度</h3>
+<div class="paragraph">
+<p>以下はどれも同じ意味である。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> ok &gt;result.txt</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> &gt; result.txt ok</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span>&gt; result.txt <span style="color: #008000">echo</span> ok</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> ok <span style="color: #666666">1</span>&gt; result.txt</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> <span style="color: #666666">1</span>&gt;result.txt ok</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>など</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="よく使われる例-2">よく使われる例 <code>&amp;&gt;</code></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<div class="title"><code>&amp;&gt;</code>: Redirecting Standard Output and Standard Error</div>
+<p><code>FD1</code>​と​<code>FD2</code>​の内容を合わせて右辺の​<code>file</code>​へ書き込む。<br>
+右辺に​<code>FD</code>​を示す数値は指定出来ない。<br>
+右辺に数字を指定しても、それは​<code>filepath</code>​として扱われる。<br>
+左辺パラメーターはない。</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<div class="title">＊</div>
+</td>
+<td class="content">
+<code>&amp;</code>​は​<code>&gt;</code>​に付くオプションスイッチではない。<br>
+<code>&amp;&gt;</code>​でひとつの​<code>Operator</code>​。
+</td>
+</tr>
+</table>
+</div>
+<hr>
+<div class="sect2">
+<h3 id="リダイレクト操作配置の自由度-2">リダイレクト操作配置の自由度</h3>
+<div class="paragraph">
+<p>以下はどれも同じ意味。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> ok &amp;&gt; filepath</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span>&amp;&gt; filepath <span style="color: #008000">echo</span> ok</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> ok &gt; filepath <span style="color: #666666">2</span>&gt;&amp;<span style="color: #666666">1</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> ok &gt; filepath <span style="color: #666666">2</span>&gt;&amp; <span style="color: #666666">1</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #666666">1</span>&gt; filepath <span style="color: #008000">echo</span> ok <span style="color: #666666">2</span>&gt;&amp; <span style="color: #666666">1</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>など</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="の用例"><code>&amp;</code>​の用例</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>&amp;&gt;</code><sup>(一括書き込み)</sup>, <code>&amp;&gt;&gt;</code><sup>(一括追記)</sup>, <code>|&amp;</code><sup>(一括パイプ)</sup>​の3つでは、<code>&amp;</code>​は​<code>FD1</code>​と​<code>FD2</code>​の内容を合わせて扱うという意味を表現している。<br>
+<code>&gt;&amp;</code><sup>(書き込みFD複製)</sup>​と​<code>&lt;&amp;</code><sup>(読み込みFD複製)</sup>​では、右辺が​<code>file descriptor</code>​であるという意味を表現している(しかし例外あり。次項へ)。</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="の曖昧動作"><code>&gt;&amp;</code>​の曖昧動作</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>&gt;&amp;</code>​<sup>(右&amp;;書き込みFD複製)</sup>は、右辺が数値ではない場合に限って​<code>&amp;&gt;</code><sup>(左&amp;;一括書き込み)</sup>​と同じ意味を持つ。<br>
+右辺が数値の場合は​<code>file descriptor</code>​操作として解釈される。</p>
+</div>
+<div class="paragraph">
+<p><code>FD1</code><sup>(stdout)</sup>​と​<code>FD2</code><sup>(stderr)</sup>​を合わせて書き込む時は​<code>&amp;&gt;</code><sup>(左&amp;)</sup>​が推奨。<br>
+<code>file descriptor</code>​の複製の場合は​<code>&gt;&amp;</code><sup>(右&amp;)</sup>​が推奨</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="redirection-operators-の名前">Redirection Operators の名前</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>ここまでで説明しようとしてきたこと、また、以下のようなbash表現を​<code>Redirection Operator</code>​と呼ぶ。<br>
+一つ一つの​<code>Operator</code>​には動作の説明が付いているのみで​<code>bash</code>​も​<code>posix</code>​も名前を与えていない。</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p><code>Redirecting Input</code>​なら​<code>Input Redirection</code>​と名詞形にすればいいだけの話だが、公式名ではないため安定感がない。<br>
+名前があれば調べる時に楽なのに。</p>
+</div>
+</blockquote>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;</code>(greater-than sign; <code>Redirecting Input</code>)</p>
+</li>
+<li>
+<p><code>&gt;</code>(less-than sign; <code>Redirecting Output</code>)</p>
+</li>
+<li>
+<p><code>&amp;&gt;</code>(ampersand, less-than sign; <code>Redirecting Standard Output and Standard Error</code>)</p>
+</li>
+<li>
+<p><code>&gt;&gt;</code>(less-than sign, less-than sign; <code>Appending Redirected Output</code>)</p>
+</li>
+<li>
+<p><code>&amp;&gt;&gt;</code>(ampersand, less-than sign, less-than sign; <code>Appending Standard Output and Standard Error</code>)</p>
+</li>
+<li>
+<p><code>&lt;&amp;</code>(greater-than sign, ampersand; <code>Duplicating File Descriptors</code>)</p>
+</li>
+<li>
+<p><code>&gt;&amp;</code>(less-than sign, ampersand; <code>Duplicating File Descriptors</code>)</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>これらの​<code>Operator</code>​利用時に​<code>'</code><sup>quote</sup>​や​<code>"</code><sup>double-quote​</sup>で囲ってはならない。<br>
+囲った場合はコマンドに対する引数文字列として解釈される。</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<div class="title">＊</div>
+</td>
+<td class="content">
+ヒアドキュメントも <code>Redirection Operator</code> だが、ここでは扱わない。<br>
+いくつかの​<code>Operator</code>​も省略してあることに注意。
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="右辺にファイルを指定するoperatorの構文解析の特性">右辺にファイルを指定する​<code>Operator</code>​の構文解析の特性</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>&lt;</code>, <code>&gt;</code>, <code>&gt;&gt;</code>, <code>&amp;&gt;</code> など。</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>(それぞれの)文章量の関係上 右辺、左辺の順で説明する。</p>
+</div>
+</blockquote>
+</div>
+<div class="sect2">
+<h3 id="filepathである右辺の表現"><code>filepath</code>​​である右辺の表現</h3>
+<div class="paragraph">
+<p><code>'</code><sup>quote</sup>や​<code>"</code><sup>double-quote</sup> で囲ってもよい。<br>
+<code>Operator</code>​と右辺の間に空白文字があってもよい。<br>
+以下3つは等価。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> aaa &gt; file.txt</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> aaa &gt;<span style="color: #BA2121">&#39;file.txt&#39;</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> aaa &gt; <span style="color: #BA2121">&quot;file.txt&quot;</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="file-descriptorである左辺の表現"><code>file descriptor</code>​である左辺の表現</h3>
+<div class="paragraph">
+<p>左辺は省略可能なため、しばしば省略形式で使われている。</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<div class="title">＊</div>
+</td>
+<td class="content">
+ちなみに​<code>&amp;&gt;</code>​には左辺は存在しないし指定できない
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>省略した場合の左辺値はそれぞれ下記。</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;</code><sup>読み込み</sup>: <code>0&lt;</code> ; 右辺ファイルを読み込みopenして結果を​<code>FD0</code>​に格納</p>
+</li>
+<li>
+<p><code>&gt;</code><sup>書き込み</sup>: <code>1&gt;</code> ; 右辺ファイルを書き込みopenして結果を​<code>FD1</code>​に​格納</p>
+</li>
+<li>
+<p><code>&gt;&gt;</code><sup>追記</sup>: <code>1&gt;&gt;</code> ; 右辺ファイルの追記openして結果を​<code>FD1</code>​に格納</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="左辺の構文解析">左辺の構文解析</h3>
+<div class="paragraph">
+<p><code>Operator</code>​と左辺の間に空白文字を入れてはいけない。<br>
+空白文字を入れると​<code>Operator</code>​の左側にあっても​<code>Operator</code>​への引数としては扱われずに、コマンドの引数として扱われる。<br>
+以下2つは意味が違う</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> ok <span style="color: #666666">1</span>&gt; filepath.txt  <span style="color: #408080; font-style: italic"># `filepath.txt`の中身は`&quot;ok&quot;`</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #008000">echo</span> ok <span style="color: #666666">1</span> &gt; filepath.txt  <span style="color: #408080; font-style: italic"># `filepath.txt`の中身は`&quot;ok 1&quot;</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="左辺と右辺で使われている-012-という数字の意味">左辺(と右辺)で使われている 0,1,2 という数字の意味</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>いくつかの <code>Redirection Operator</code> の左辺や <code>FD操作</code>​の両辺に現れるこれらの数値は何か？<br>
+これら3つの数値は <code>FD</code><sup>file-descriptor</sup>​と呼ばれるもの。​ちなみに3以上の数値の数値も​<code>FD</code>​。<br>
+0,1,2は、あらかじめ入出力ストリームが設定されているという点のみが特別。それ以外では、他の​<code>FD</code>​数値と同じように扱える。</p>
+</div>
+<div class="paragraph">
+<p>他の​<code>FD</code>(<code>3</code>​以上の数値)は初期状態では空っぽの状態にある。<br>
+<code>FD</code>​数値の上限値は(リソース制限・調査コマンドの)​<code>ulimit -n</code>​の​<code>値-1</code>​で求められる。この値は環境によって異なる。(たぶん 255 までならどの環境でも使える)</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>例: <code>ulimit -n</code> &#8594; <code>1024</code>​ならば​<code>1023</code>​まで使うことが出来る</p>
+</div>
+</blockquote>
+</div>
+<div class="sect2">
+<h3 id="なぜ012だけでなく3以上が用意されているか">なぜ​<code>0</code>,<code>1</code>,<code>2</code>​だけでなく​<code>3</code>​以上が用意されているか？</h3>
+<div class="paragraph">
+<p>なぜなら使い途があるから。<br>
+標準入力・標準出力・標準エラー出力の3種類だけでは表現出来ないパイプライン構造・リダイレクト構造・入出力構造を表現するために使用出来るから。<br>
+ファイルを​<code>open</code>​した結果を格納したり、既にある​<code>FD</code>​の複製元・複製先として使う。</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<div class="title">＊</div>
+</td>
+<td class="content">
+<code>&lt;</code>, <code>&gt;</code>, <code>&gt;&gt;</code> の左辺に来る数値はいずれも​<code>file descriptor</code>​。
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p><code>0</code>,<code>1</code>,<code>2</code>​にはあらかじめ以下のストリームが関連付けられている。</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>0</code>: <code>stdin</code>(標準入力)</p>
+</li>
+<li>
+<p><code>1</code>: <code>stdout</code>(標準出力)</p>
+</li>
+<li>
+<p><code>2</code>: <code>stderr</code>(標準エラー出力)</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>(繰り返しになるが)これらの数値はマジックナンバーではない。<br>
+<code>stdout</code>​を指す​<code>3</code>​を作れるし、​<code>stdin</code>​を指す​<code>100</code>​を作れる。<br>
+<code>0</code>,<code>1</code>,<code>2</code>​を閉じることも出来るし、​<code>0</code>,<code>1</code>,<code>2</code>​が指す先を変えることも出来る。</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="よくある例-command-1-all_log-txt-21">よくある例 <code>command  1&gt; all_log.txt  2&gt;&amp;1</code></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>標準出力と標準エラー出力の両方を同じファイルに出力したい場合の定型句。<br>
+<code>cat not_found.txt  1&gt; all_log.txt  2&gt;&amp;1</code> (［正の例］ <code>2&gt;&amp;1</code>​が後にある)<br>
+なぜ<br>
+​<code>cat not_found.txt  2&gt;&amp;1  1&gt; all_log.txt</code>​ (［誤の例］ <code>2&gt;&amp;1</code>​が先にある)<br>
+とは動作が違うか？</p>
+</div>
+<div class="sect2">
+<h3 id="redirection-operatorの評価順序"><code>Redirection Operator</code>​の評価順序</h3>
+<div class="paragraph">
+<p>​<code>Redirection Operator</code>​は左から右へ評価される。</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="動作">動作</h3>
+<div class="paragraph">
+<p>上記例で使われている2種類の​<code>Operator</code>(<code>&gt;</code><sup>Output-Redirection</sup>​と​<code>&gt;&amp;</code>^^​)​の動作を、​<code>C++</code>​言語風に説明すると以下の通り。<br>
+この疑似コード説明の焦点は、​<code>file descriptor</code>​と​<code>stream</code>​の二重構造があるということ。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="c++"><span></span><span style="color: #408080; font-style: italic">// [L]&gt;filepath 形式</span>
+<span style="color: #408080; font-style: italic">// left hand side, file descriptor number</span>
+<span style="color: #408080; font-style: italic">// right hand side, filepath</span>
+<span style="color: #B00040">void</span> <span style="color: #008000; font-weight: bold">operator</span> <span style="color: #666666">&gt;</span>(<span style="color: #B00040">int</span> left_fd<span style="color: #666666">=1</span>, string right_path) {
+    <span style="color: #408080; font-style: italic">// 右辺ファイルを書き込みでopenして左辺のFDに格納する。</span>
+    BashFDs[left_fd].stream <span style="color: #666666">=</span> open(right_path, WRITE <span style="color: #666666">|</span> CREATE <span style="color: #666666">|</span> TRUNCATE);
+}
+
+
+<span style="color: #408080; font-style: italic">// [L]&gt;&amp;[R] 形式</span>
+<span style="color: #B00040">void</span> <span style="color: #008000; font-weight: bold">operator</span> <span style="color: #666666">&gt;&amp;</span>(<span style="color: #B00040">int</span> left_fd<span style="color: #666666">=1</span>, <span style="color: #B00040">int</span> right_fd) {
+    <span style="color: #408080; font-style: italic">// 右辺のFDの中身を左辺のFDへ</span>
+    BashFDs[left_fd].stream <span style="color: #666666">=</span> BashFDs[right_fd].stream;
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>なお​<code>FD</code>​の中にあるものを「ストリーム」や「ストリームハンドル」という名前で呼ぶことは一般的ではない。</p>
+</div>
+<div class="paragraph">
+<p><code>FD​操作</code>​を理解する際は​<code>&gt;</code>​を入出力の向きの比喩として読まない方が理解しやすい。<br>
+<code>&gt;</code>​はファイルを​<code>open</code>​する操作であることを理解すること。</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>上記の疑似コードは​<code>stream</code>​が上書きされる時に​<code>close</code>​されることや、BashFDsの変更がコマンドライン1行で放棄されることは表現されていない。</p>
+</div>
+<div class="paragraph">
+<p>また、これは​<code>bash</code>​における​<code>file descriptor</code>​操作のための比喩コードである。<br>
+Unix系OS一般における​<code>file descriptor</code>​の比喩コードだと解釈してはいけない。</p>
+</div>
+</blockquote>
+</div>
+</div>
+<div class="sect2">
+<h3 id="正の例の動作-1-all_log-txt-21">正の例の動作; <code>1&gt; all_log.txt  2&gt;&amp;1</code></h3>
+<div class="paragraph">
+<p><code>cat not_found.txt  1&gt; all_log.txt  2&gt;&amp;1</code>​を​<code>C++</code>​風コードで挙動を書くと以下。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="c++"><span></span><span style="color: #408080; font-style: italic">// ファイルを開いてストリームハンドルを FD1 に格納</span>
+BashFDs[<span style="color: #666666">1</span>].stream <span style="color: #666666">=</span> open(<span style="color: #BA2121">&quot;all_log.txt&quot;</span>, WRITE <span style="color: #666666">|</span> CREATE <span style="color: #666666">|</span> TRUNCATE);
+<span style="color: #408080; font-style: italic">// FD2 に FD1 のストリームハンドルを複製</span>
+BashFDs[<span style="color: #666666">2</span>].stream <span style="color: #666666">=</span> BashFDs[<span style="color: #666666">1</span>].stream;
+<span style="color: #408080; font-style: italic">// catコマンド実行</span>
+cat(BashFDs, <span style="color: #BA2121">&quot;not_found.txt&quot;</span>);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>FD1</code>​の​<code>stream</code>​にも​<code>FD2</code>​の​<code>stream</code>​にも書き込みモードで開いた同じストリームが入っている。<br>
+期待通りに、標準出力とエラー出力に出力されるはずだった内容がファイルに書き込まれる。</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="誤の例の動作-21-1-all_log-txt">誤の例の動作; <code>2&gt;&amp;1  1&gt; all_log.txt</code></h3>
+<div class="paragraph">
+<p>一方で​<code>cat not_found.txt  2&gt;&amp;1  1&gt; all_log.txt</code>​を​<code>C++</code>​風コードで挙動を書くならば</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="c++"><span></span><span style="color: #408080; font-style: italic">// 初期状態では FD1 にはstdout(標準出力ストリームハンドル)が設定されいてる</span>
+<span style="color: #408080; font-style: italic">// FD2 に FD1 のストリームハンドルを複製</span>
+BashFDs[<span style="color: #666666">2</span>].stream <span style="color: #666666">=</span> BashFDs[<span style="color: #666666">1</span>].stream;
+<span style="color: #408080; font-style: italic">// ファイルを開いてストリームハンドルを FD1 に格納</span>
+BashFDs[<span style="color: #666666">1</span>].stream <span style="color: #666666">=</span> open(<span style="color: #BA2121">&quot;all_log.txt&quot;</span>, WRITE <span style="color: #666666">|</span> CREATE <span style="color: #666666">|</span> TRUNCATE);
+<span style="color: #408080; font-style: italic">// catコマンド実行</span>
+cat(BashFDs, <span style="color: #BA2121">&quot;not_found.txt&quot;</span>);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>FD1</code>​の​<code>stream</code>​にはファイルへのストリームが入っているが、​<code>FD2</code>​には​<code>stdout</code>​が入ってしまっている。<br>
+後者の例が必要になる場合もあるが、標準出力もエラー出力も同じファイルに書き出したいという要求には一致しない。</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="二重オープン-さらに別の誤の例-1-all_log-txt-2-all_log-txt">二重オープン; さらに別の誤の例; <code>1&gt; all_log.txt  2&gt; all_log.txt</code></h3>
+<div class="paragraph">
+<p>もう1例​<code>cat not_found.txt  1&gt; all_log.txt  2&gt; all_log.txt</code>​の場合を​<code>C++</code>​風コードで挙動を書く</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="c++"><span></span>BashFDs[<span style="color: #666666">1</span>].stream <span style="color: #666666">=</span> open(<span style="color: #BA2121">&quot;all_log.txt&quot;</span>, WRITE <span style="color: #666666">|</span> CREATE <span style="color: #666666">|</span> TRUNCATE);
+BashFDs[<span style="color: #666666">2</span>].stream <span style="color: #666666">=</span> open(<span style="color: #BA2121">&quot;all_log.txt&quot;</span>, WRITE <span style="color: #666666">|</span> CREATE <span style="color: #666666">|</span> TRUNCATE);
+<span style="color: #408080; font-style: italic">// 以下省略</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>2回のopenとTRUNCATE(切り詰め)が行なわれてしまうし、2つのストリームが生成されてしまう。<br>
+そのために、同じファイルに出力とエラーを書き込もうとしているのに、​<code>1</code>​と​<code>2</code>​はseek位置を共有しない。<br>
+これを動作させた結果はややこしい。</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="追記-読み込み-fd複製-の動作"><code>&gt;&gt;</code><sup>追記</sup>, <code>&lt;</code><sup>読み込み</sup>, <code>&lt;&amp;</code><sup>FD複製</sup> の動作</h3>
+<div class="paragraph">
+<p>他の​<code>Redirection Operation</code>​を​<code>C++</code>​風コードで挙動を書くならば</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="c++"><span></span><span style="color: #B00040">void</span> <span style="color: #008000; font-weight: bold">operator</span> <span style="color: #666666">&gt;&gt;</span>(<span style="color: #B00040">int</span> fd<span style="color: #666666">=1</span>, string path) {
+    <span style="color: #408080; font-style: italic">// 追記モードで右辺ファイルをopenしてストリームハンドルを格納</span>
+    BashFDs[fd].stream <span style="color: #666666">=</span> open(path, WRITE <span style="color: #666666">|</span> CREATE <span style="color: #666666">|</span> APPEND);
+}
+
+<span style="color: #B00040">void</span> <span style="color: #008000; font-weight: bold">operator</span> <span style="color: #666666">&lt;</span>(<span style="color: #B00040">int</span> fd<span style="color: #666666">=0</span>, string path) {
+    <span style="color: #408080; font-style: italic">// 読み込みモードで右辺ファイルをopenしてストリームハンドルを格納</span>
+    BashFDs[fd].stream <span style="color: #666666">=</span> open(path, READ);
+}
+
+<span style="color: #408080; font-style: italic">// [n]&lt;&amp;[m]</span>
+<span style="color: #B00040">void</span> <span style="color: #008000; font-weight: bold">operator</span> <span style="color: #666666">&lt;&amp;</span>(<span style="color: #B00040">int</span> left_fd<span style="color: #666666">=0</span>, <span style="color: #B00040">int</span> right_fd) {
+    <span style="color: #408080; font-style: italic">// 左辺FDに右辺FDの中身を複製</span>
+    BashFDs[left_fd].stream <span style="color: #666666">=</span> BashFDs[right_fd].stream;
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>&lt;&amp;</code><sup>読み込みFD複製</sup>​と​<code>&gt;&amp;</code><sup>書き込みFD複製</sup>​は左辺省略時のデフォルト引数以外に違いはないことに注目。<br>
+両辺を明示するならば、この二つの​<code>Operators</code>​は同じ挙動をする。</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="標準入力に書き込む">標準入力に書き込む</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>環境依存</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="console"><span></span><span style="color: #000080; font-weight: bold">$ </span><span style="color: #008000">echo</span> ok | tr -d <span style="color: #BA2121">&#39;o&#39;</span>
+<span style="color: #888888">k</span>
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #408080; font-style: italic"># tr によってoが消された</span>
+
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #408080; font-style: italic"># FD1にstdinを割り当ててみる</span>
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #008000">echo</span> ok <span style="color: #666666">1</span>&gt;&amp;<span style="color: #666666">0</span> | tr -d <span style="color: #BA2121">&#39;o&#39;</span>
+<span style="color: #888888">ok</span>
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #408080; font-style: italic"># oが表示される上にパイプを回避している</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ファイルを開く操作とfile-descriptor操作の区別">ファイルを開く操作と​<code>file descriptor操作</code>​の区別</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>&lt;,&gt;,&amp;</code> といった文字を使った操作には大別して4種類ある。</p>
+</div>
+<div class="sect2">
+<h3 id="など"><code>&lt;</code>, <code>&gt;</code>, <code>&gt;&gt;</code>, <code>&lt;&gt;</code> など</h3>
+<div class="paragraph">
+<p>左辺に​<code>FD</code>​数値を、右辺にファイルパスを取る表現<br>
+<strong>ファイルをそれぞれの条件で開き左辺の​<code>FD</code>​に割り当てる。</strong><br>
+左辺を省略した場合の初期値はそれぞれ <code>0&lt;</code>, <code>1&gt;</code>, <code>1&gt;&gt;</code>, <code>0&lt;&gt;</code></p>
+</div>
+</div>
+<div class="sect2">
+<h3 id=""><code>&lt;&amp;</code>, <code>&gt;&amp;</code></h3>
+<div class="paragraph">
+<p>左辺と右辺の両方に数値を取る表現(ここではこれを​<code>file descriptor操作</code>​, <code>FD操作</code>​と呼ぶ)<br>
+<code>&lt;&amp;</code>, <code>&gt;&amp;</code> ; <strong>右辺の​<code>FD</code>​を複製して左辺に割り当てる。</strong><br>
+左辺を省略した場合の初期値はそれぞれ <code>0&lt;&amp;</code>, <code>1&gt;&amp;</code></p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="-2"><code>&amp;&gt;</code>, <code>&amp;&gt;&gt;</code></h3>
+<div class="paragraph">
+<p>左辺なし、右辺にファイルパスを取る表現<br>
+上記の組み合わせを簡単に表現するためのもの。</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="-3"><code>&lt;&lt;</code>, <code>&lt;&lt;&lt;</code></h3>
+<div class="paragraph">
+<p>左辺に​<code>FD</code>​数値を、右辺以降にデータを表現するもの<br>
+Here Document, Here String。<br>
+説明省略。</p>
+</div>
+<hr>
+</div>
+<div class="sect2">
+<h3 id="区別まとめ">区別まとめ</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>左辺に​<code>FD</code>​数値を取るか、何も取らないか</p>
+</li>
+<li>
+<p>右辺に​<code>FD</code>​数値を取るか、ファイルパスを取るか、データを取るか</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="fd操作の寿命"><code>FD</code>​操作の寿命</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>ここまでで説明した​<code>FD</code>​操作やリダイレクト操作は、指定したコマンドに対してしか効果がない。<br>
+以下に例を示すが、直感に反する動作はないと思う。</p>
+</div>
+<div class="listingblock">
+<div class="title"><code>FD</code>​操作影響は次の行のコマンドには持ち越されない</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span>commandA &gt;​ result.txt
+commandB​
+<span style="color: #408080; font-style: italic"># commandB の標準出力は result.txt には入らない</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title"><code>;</code>(<code>semicolon</code>)の左側に対する操作は、右側には影響しない</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span>commandA &gt; result.txt ; commandB
+<span style="color: #408080; font-style: italic"># commandB の標準出力は result.txt には入らない</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title"><code>|</code>(<code>vertical bar</code>)の左側に対する操作は、右側には影響しない</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span>commandA <span style="color: #666666">2</span>&gt; error.txt | commandB
+<span style="color: #408080; font-style: italic"># commandA の標準エラー出力は result.txt に入る</span>
+<span style="color: #408080; font-style: italic"># commandB の標準エラー出力は result.txt には入らない</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title"><code>|</code>(<code>vertical bar</code>)の右側に対する操作は、左側には影響しない</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span>commandA | commandB <span style="color: #666666">1</span>&gt; all.txt <span style="color: #666666">2</span>&gt;&amp;<span style="color: #666666">1</span>
+<span style="color: #408080; font-style: italic"># commandA の標準出力は commandB の入力に入る。</span>
+<span style="color: #408080; font-style: italic"># commandA の標準エラー出力は端末の標準エラー出力に出る。</span>
+<span style="color: #408080; font-style: italic"># commandB の標準出力と標準エラー出力は all.txt に入る</span></code></pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="execを理解するための準備"><code>exec</code>​を理解するための準備</h3>
+<div class="paragraph">
+<p>当然、ファイルを取るリダイレクト操作はファイルを​<code>open</code>​している。<br>
+操作に応じて​<code>read</code>​か​<code>write</code>​されて、コマンドの終了後に​<code>close</code>​する。<br>
+コマンドに直接リダイレクト操作を書く方法では、ファイルを​<code>close</code>​させない方法(ファイルを開きっぱなしにする方法)は存在しない。</p>
+</div>
+<div class="paragraph">
+<p>単純なリダイレクト操作では、いつ​<code>open</code>​されて、いつ​<code>close</code>​されるかは気にしなくてもよい。<br>
+しかし、​<code>fifo</code>​をリダイレクトに使う際や、​<code>exec</code>​を使う際には、​<code>open</code>​と​<code>close</code>​のタイミングを知っておくと動作が予測しやすい。</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="execによるfile-descriptor操作の永続化"><code>exec</code>​による​<code>file descriptor操作</code>​の永続化</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>exec</code>​は bash の built in command です。</p>
+</div>
+<div class="paragraph">
+<p><code>exec</code>​自体もコマンドだが、​<code>exec</code>​の引数もコマンドであるため用語曖昧さがある。<br>
+この項目では以降、単語「コマンド」を引数側に指定されるコマンドを指すものとしてのみ使う。</p>
+</div>
+<div class="paragraph">
+<p><code>exec</code>​の機能は2つある。そのうちの［リダイレクト操作の永続化］が理解しにくい。</p>
+</div>
+<div class="sect2">
+<h3 id="機能1-現在のbashプロセスをexecに続くコマンドで置き換える">機能1: 現在の​<code>bash</code>​プロセスを​<code>exec</code>​に続くコマンドで置き換える</h3>
+<div class="paragraph">
+<p><code>exec</code>​以降にスクリプトやコマンドがあったとしても実行されない。</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<div class="title">＊</div>
+</td>
+<td class="content">
+試しに​<code>exec cat</code>​した後に​<code>Ctrl+c</code>​で強制終了すると、​<code>bash</code>​に戻らないことを確認できる。
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>パイプと組み合わせた時の挙動は推測しにくいが、ここでは説明しない。</p>
+</div>
+<div class="paragraph">
+<p>末尾呼び出し最適化を想定した機能。<br>
+以降この機能を「プロセス書き換え​<code>exec</code>​」と呼ぶ(が、もうこれ以降登場しない)。</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<div class="title">＊</div>
+</td>
+<td class="content">
+bash の man で exec は <code>it replaces the shell</code> と説明されているため「置き換え」という語を使いたい。けれど、​<code>Process Substitution</code>(日本語訳: <code>プロセス置換</code>)と紛らわしいため、区別のために「書き換え」という語をここでは使う。<br>
+<code>プロセス置換</code>​と​<code>exec</code>​によるプロセスの書き換えは違う機能である。
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<div class="title">＊</div>
+</td>
+<td class="content">
+<code>プロセス置換</code>​とは例えば​<code>cat &lt;(sed -e 's/a/A/' &lt; fileB)  &lt;(tr -d 'b' &lt; fileD)</code>​のようなリダイレクト機能のこと。
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="機能2-現在のbashプロセス内でリダイレクト操作の永続化">機能2: 現在の​<code>bash</code>​プロセス内でリダイレクト操作の永続化</h3>
+<div class="paragraph">
+<p><code>exec</code>​にコマンドを指定せずにリダイレクト操作だけを指定すると、以降のコマンドにも指定したリダイレクト状態が影響するようになる。<br>
+これをリダイレクト状態が永続化すると呼ぶ。<br>
+(当然だが別プロセスの​<code>bash</code>​には影響しない)</p>
+</div>
+<div class="sidebarblock">
+<div class="content">
+<div class="paragraph">
+<div class="title">［コマンドを指定せずに］とは</div>
+<p>書式: <code>exec [-cl] [-a name] [command [arguments]]</code></p>
+</div>
+<div class="paragraph">
+<p><code>exec</code>​は左から引数を解釈していく。<br>
+もしそれが​<code>-a</code>​の場合は、その次の引数は​<code>a</code>​に対する引数(help text上の​<code>name</code>​)として解釈する。<br>
+それ以外の​<code>-</code>​から始まる引数は​<code>exec</code>​に対する引数として解釈する。<br>
+存在しないオプションを指定するとエラーする。<br>
+そうやって解釈して、​<code>-</code>​(<code>Hyphen</code>)​から始まらない引数に出会ったら、それをコマンド(help text上の​<code>[command &#8230;&#8203;]</code>)として解釈し、それ以降の引数をコマンドに対する引数​<code>[arguments]</code>​として解釈する。</p>
+</div>
+<div class="paragraph">
+<p>もし​<code>-</code>(<code>Hyphen</code>)​から始まるコマンドを指定したい場合は、​<code>"--"</code>​(<code>Hyphen</code> 2つ)​を渡して​<code>exec</code>​に対するオプションが終了したことを伝える必要がある。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code><span></span>exec -- -starts-with-hyphen-command.sh</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p><code>Redirection Operators</code><sup>リダイレクト操作オペレーター</sup>​は​<code>exec</code>​に対する引数としても、コマンドに対する引数としても解釈されない。<br>
+そのため、引数との順序関係を考慮する必要はない <sup>(​リダイレクト操作同士の順序は前述の通りである。そちらは考慮する必要がある)</sup>​。</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="リダイレクト操作永続化の用途">リダイレクト操作永続化の用途</h3>
+<div class="paragraph">
+<p>使ったらできること。</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>コマンドごとに指定していたリダイレクト操作指定を減らす。</p>
+</li>
+<li>
+<p>間接的に指定する書き方によって、プログラミング適性を(わずかに)上げる。</p>
+</li>
+<li>
+<p><code>fifo</code>​を​<code>open</code>​したままにして、そこへ複数のコマンド結果を入れる。</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>fifo</code>​は書き込み側​<code>close</code>​するとそれが読み込み側に伝わるため、これを抑制するのに必要になる​<sup>(複数の書き込み側テクニックを使うことにより、閉じないようにする方法もある)</sup>​。</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>書き込みリダイレクトを複雑に結合する</p>
+<div class="ulist">
+<ul>
+<li>
+<p>ファイルを開く閉じるが繰り返されてもいいならば追記書き込み​<code>&gt;&gt;</code>​で足りる。また、単純な例ならば​<code>()</code>, <code>{}</code>​で囲えば足りる。これら以外の場合にだけ必要になる。</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>読み込みリダイレクトを複雑に結合する。</p>
+<div class="ulist">
+<ul>
+<li>
+<p>一度開いたストリームは、seek位置を保持し続けるため、コマンドAに読ませる、その続きをコマンドBに読ませる といったことが出来る​<sup>(どれだけのデータを読み出すかは各コマンド側が決める)</sup>​。</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>実行中の​<code>bash</code>​の端末・仮想端末を別のものに切り替える; あるいは複数の仮想端末を現​<code>bash</code>​につなぐ。<br>
+​<code>bash</code>​を動作させたままに別の標準入力ストリーム・標準出力ストリーム・標準エラーストリームを​<code>0</code>, <code>1</code>, <code>2</code>​に割り当てることが出来る。<br>
+これはつまり、別の(仮想)端末に現在の​<code>bash</code>​を移動させることが出来ることを意味する。</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<div class="title">＊</div>
+</td>
+<td class="content">
+プログラミング言語の定番機能であるファイル入出力機能の​<code>open</code>​にあたる機能があるから、​<code>bash</code>​にもseek機能があるかと期待するが、この機能は無い。
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>上のリストのうち​<code>exec</code>​でなければ出来ないことは、ファイルを​<code>open</code>​したままにすることと、仮想端末の変更だけ。</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="exec-redi-fifo"><code>fifo</code>​との組み合わせ</h3>
+<div class="paragraph">
+<p>まずは比較のための​<code>非fifo</code>​なおかつ​<code>exec</code>​を使わない例。<br>
+出力先が普通のファイルならば、以下2例は同じ結果になる(ファイルの中身が​<code>"xxxyyy"</code>​になる)。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #408080; font-style: italic"># 分割の例</span>
+<span style="color: #008000">echo</span> -n xxx &gt; dest  <span style="color: #408080; font-style: italic"># 1行目</span>
+<span style="color: #008000">echo</span> -n yyy &gt;&gt; dest  <span style="color: #408080; font-style: italic"># 2行目</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #408080; font-style: italic"># 結合の例</span>
+<span style="color: #008000">echo</span> -n xxxyyy &gt; dest</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<div class="title">＊</div>
+</td>
+<td class="content">
+<code>echo -n</code>​は末尾の改行を抑制するオプション
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>しかし、出力先が​<code>fifo</code>​だった場合(​<code>dest</code>​が​<code>fifo</code>​だった場合)上記2例は等価ではない。<br>
+<code>fifo</code>​の読み出し側が​<code>"xxx"</code>​が来た時点で end-of-file を理由として​<code>close</code>​が起きる。</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<div class="title">＊</div>
+</td>
+<td class="content">
+<code>fifo</code>​の動作仕様は数行では説明できないため、​<a href="2023-05-19-fifo.html#end-pipe">別ページの[パイプの終了に関して]を参照のこと。</a>​​
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p><strong><code>"xxxyyy"</code>​を​<code>fifo</code>​の読み出し側に届けたいのであれば、1行目で起きる​<code>close</code>​(書き込み側)を抑制する必要がある。</strong></p>
+</div>
+<div class="paragraph">
+<p>そのための方法その1は括弧​<code>()</code>​<sup>parenthesis</sup>​や​<code>{}</code>​<sup>curly-brace</sup>​で囲うこと。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #408080; font-style: italic"># 括弧の例</span>
+<span style="color: #666666">{</span>
+  <span style="color: #008000">echo</span> -n xxx
+  <span style="color: #008000">echo</span> -n yyy
+<span style="color: #666666">}</span> &gt; dest</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>方法2は​<code>exec</code>​を使うこと</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="sh"><span></span><span style="color: #408080; font-style: italic"># execの例</span>
+<span style="color: #008000">exec</span> <span style="color: #666666">1</span>&gt; dest  <span style="color: #408080; font-style: italic"># open</span>
+<span style="color: #008000">echo</span> -n xxx
+<span style="color: #008000">echo</span> -n yyy
+<span style="color: #008000">exec</span> <span style="color: #666666">1</span>&gt;&amp;-  <span style="color: #408080; font-style: italic"># close</span>
+<span style="color: #408080; font-style: italic"># after</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>方法2(<code>exec</code>​の例)の after 以降で何かコマンドを実行すると​<code>FD1</code>​が​<code>close</code>​していてどこにも繋がっていないためエラーする。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="console"><span></span><span style="color: #000080; font-weight: bold">$ </span><span style="color: #008000">echo</span> zzz
+<span style="color: #888888">bash: echo: write error: Bad file descriptor</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>このエラーを回避するには元々の​<code>FD1</code>​を保存して、後に元に戻す必要がある。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="console"><span></span><span style="color: #000080; font-weight: bold">$ </span><span style="color: #408080; font-style: italic"># execの例その2</span>
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #008000">exec</span> <span style="color: #666666">10</span>&gt;&amp; <span style="color: #666666">1</span>  <span style="color: #408080; font-style: italic"># copy(FD10 = FD1); FD10 に FD1 の中身を保存</span>
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #008000">exec</span> <span style="color: #666666">1</span>&gt; dest  <span style="color: #408080; font-style: italic"># open</span>
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #008000">echo</span> -n xxx
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #008000">echo</span> -n yyy
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #008000">exec</span> <span style="color: #666666">1</span>&gt;&amp;<span style="color: #666666">10</span>  <span style="color: #408080; font-style: italic"># close(FD1); copy(FD1 = FD10)</span>
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #008000">exec</span> <span style="color: #666666">10</span>&gt;&amp;-  <span style="color: #408080; font-style: italic"># close(FD10); してもしなくても良い</span>
+<span style="color: #000080; font-weight: bold">$ </span><span style="color: #008000">echo</span> zzz
+<span style="color: #888888">zzz</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+    
+  </div><a class="u-url" href="/note/2023-03-13-bash-fd.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/note/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">メモ束</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">メモ束</li><li><a class="u-email" href="mailto:itr.tert+code(@)gmail.com">itr.tert+code(@)gmail.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/itr-tert"><svg class="svg-icon"><use xlink:href="/note/assets/minima-social-icons.svg#github"></use></svg> <span class="username">itr-tert</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>-</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
