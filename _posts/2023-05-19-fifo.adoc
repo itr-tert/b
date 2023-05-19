@@ -6,7 +6,7 @@ toc_min: 1
 toc_max: 2
 ---
 
-= FIFO Special File
+= FIFO Special File は複数の読み書き側をサポートしている
 
 :ffmpeg-page-name: [ffmpeg: 任意の画像加工コマンドで動画を加工する]
 :ffmpeg-page-url: 2023-03-07-ffmpeg-custom-filter.html
